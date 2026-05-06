@@ -1,0 +1,238 @@
+#!/usr/bin/env node
+/**
+ * build-from-upstream.js — Patch upstream Codex and repackage
+ *
+ * For macOS and Windows: no forge needed.
+ * Takes the upstream app, patches ASAR in-place, replaces codex CLI, outputs distributable.
+ *
+ * Usage:
+ *   node scripts/build-from-upstream.js --platform mac-arm64
+ *   node scripts/build-from-upstream.js --platform mac-x64
+ *   node scripts/build-from-upstream.js --platform win
+ */
+const fs = require("fs");
+const path = require("path");
+const { execSync } = require("child_process");
+
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const SRC_DIR = path.join(PROJECT_ROOT, "src");
+const OUT_DIR = path.join(PROJECT_ROOT, "out");
+
+const TARGET_TRIPLE_MAP = {
+  "mac-arm64": "aarch64-apple-darwin",
+  "mac-x64": "x86_64-apple-darwin",
+  "win": "x86_64-pc-windows-msvc",
+};
+
+// ─── Helpers ────────────────────────────────────────────────────
+
+function clearDir(dir) {
+  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+function copyRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  let count = 0;
+  for (const e of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, e.name), d = path.join(dest, e.name);
+    if (e.isDirectory()) { count += copyRecursive(s, d); }
+    else if (e.isSymbolicLink()) {
+      const target = fs.readlinkSync(s);
+      try { fs.symlinkSync(target, d); } catch {}
+      count++;
+    } else {
+      fs.copyFileSync(s, d);
+      count++;
+    }
+  }
+  return count;
+}
+
+function resolveCodexVendor(platform) {
+  const triple = TARGET_TRIPLE_MAP[platform];
+  if (!triple) return null;
+  const binName = platform === "win" ? "codex.exe" : "codex";
+
+  // Try local node_modules
+  const localPath = path.join(PROJECT_ROOT, "node_modules", "@cometix", "codex", "vendor", triple, "codex", binName);
+  if (fs.existsSync(localPath)) return localPath;
+
+  // npm pack fallback
+  console.log("   [codex] fetching via npm pack...");
+  const tmpDir = path.join(require("os").tmpdir(), "cometix-codex-pack");
+  fs.mkdirSync(tmpDir, { recursive: true });
+  try {
+    const tgzName = execSync("npm pack @cometix/codex@latest --pack-destination " + tmpDir, {
+      cwd: tmpDir, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"],
+    }).trim().split("\n").pop();
+    const extractDir = path.join(tmpDir, "extracted");
+    clearDir(extractDir);
+    execSync(`tar xzf "${path.join(tmpDir, tgzName)}" -C "${extractDir}"`, { stdio: "pipe" });
+    const p = path.join(extractDir, "package", "vendor", triple, "codex", binName);
+    if (fs.existsSync(p)) return p;
+  } catch (e) {
+    console.log(`   [!] npm pack failed: ${e.message}`);
+  }
+  return null;
+}
+
+// ─── macOS build ────────────────────────────────────────────────
+
+function buildMac(platform) {
+  const platformDir = path.join(SRC_DIR, platform);
+  const asarDir = path.join(platformDir, "_asar");
+
+  if (!fs.existsSync(asarDir)) {
+    console.error(`[x] ${platform}/_asar/ not found. Run sync-upstream first.`);
+    process.exit(1);
+  }
+
+  // 1. Find the .app in the ZIP extract cache
+  const tempDir = path.join(require("os").tmpdir(), "codex-sync");
+  const variant = platform === "mac-arm64" ? "arm64" : "x64";
+  const extractDir = path.join(tempDir, `${variant}-extract`);
+
+  // Find Codex.app
+  let appPath = null;
+  if (fs.existsSync(extractDir)) {
+    const findApp = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === "Codex.app" && e.isDirectory()) return path.join(dir, e.name);
+        if (e.isDirectory()) { const r = findApp(path.join(dir, e.name)); if (r) return r; }
+      }
+      return null;
+    };
+    appPath = findApp(extractDir);
+  }
+
+  if (!appPath) {
+    console.error(`[x] Codex.app not found in cache. Run sync-upstream first.`);
+    process.exit(1);
+  }
+
+  console.log(`   [source] ${appPath}`);
+
+  // 2. Copy .app to output
+  const outAppDir = path.join(OUT_DIR, platform);
+  clearDir(outAppDir);
+  const outApp = path.join(outAppDir, "Codex.app");
+  console.log("   [copy] Codex.app -> out/");
+  copyRecursive(appPath, outApp);
+
+  const resourcesDir = path.join(outApp, "Contents", "Resources");
+
+  // 3. Repack patched ASAR
+  const asarPath = path.join(resourcesDir, "app.asar");
+  console.log("   [asar pack] _asar/ -> app.asar");
+  execSync(`npx asar pack "${asarDir}" "${asarPath}"`);
+
+  // 4. Replace codex CLI
+  replaceCodex(platform, resourcesDir, "codex");
+
+  // 5. Create ZIP
+  const version = getVersion(asarDir);
+  const zipName = `Codex-${platform}-${version}.zip`;
+  const zipPath = path.join(OUT_DIR, zipName);
+  console.log(`   [zip] ${zipName}`);
+  execSync(`cd "${outAppDir}" && zip -r -y -q "${zipPath}" Codex.app`);
+
+  const sizeMB = (fs.statSync(zipPath).size / 1048576).toFixed(1);
+  console.log(`   [ok] ${zipPath} (${sizeMB} MB)`);
+}
+
+// ─── Windows build ──────────────────────────────────────────────
+
+function buildWin(platform) {
+  const platformDir = path.join(SRC_DIR, platform);
+  const asarDir = path.join(platformDir, "_asar");
+
+  if (!fs.existsSync(asarDir)) {
+    console.error(`[x] win/_asar/ not found. Run sync-upstream first.`);
+    process.exit(1);
+  }
+
+  // Windows: use the MSIX extract cache
+  const tempDir = path.join(require("os").tmpdir(), "codex-sync");
+  const extractDir = path.join(tempDir, "win-extract");
+  const appDir = path.join(extractDir, "app");
+
+  if (!fs.existsSync(appDir)) {
+    console.error(`[x] MSIX extract not found. Run sync-upstream first.`);
+    process.exit(1);
+  }
+
+  // Copy app/ to output
+  const outAppDir = path.join(OUT_DIR, "win");
+  clearDir(outAppDir);
+  const outApp = path.join(outAppDir, "Codex-win32-x64");
+  console.log("   [copy] MSIX app/ -> out/");
+  copyRecursive(appDir, outApp);
+
+  const resourcesDir = path.join(outApp, "resources");
+
+  // Repack patched ASAR
+  const asarPath = path.join(resourcesDir, "app.asar");
+  console.log("   [asar pack] _asar/ -> app.asar");
+  execSync(`npx asar pack "${asarDir}" "${asarPath}"`);
+
+  // Replace codex CLI
+  replaceCodex(platform, resourcesDir, "codex.exe");
+
+  // Create ZIP
+  const version = getVersion(asarDir);
+  const zipName = `Codex-win-x64-${version}.zip`;
+  const zipPath = path.join(OUT_DIR, zipName);
+  console.log(`   [zip] ${zipName}`);
+  execSync(`cd "${outAppDir}" && zip -r -q "${zipPath}" .`);
+
+  const sizeMB = (fs.statSync(zipPath).size / 1048576).toFixed(1);
+  console.log(`   [ok] ${zipPath} (${sizeMB} MB)`);
+}
+
+// ─── Shared ─────────────────────────────────────────────────────
+
+function replaceCodex(platform, resourcesDir, binName) {
+  const vendor = resolveCodexVendor(platform);
+  if (vendor) {
+    const dest = path.join(resourcesDir, binName);
+    fs.copyFileSync(vendor, dest);
+    try { fs.chmodSync(dest, 0o755); } catch {}
+    console.log(`   [codex] replaced with @cometix/codex`);
+  } else {
+    console.log(`   [!] @cometix/codex not found, keeping upstream codex`);
+  }
+}
+
+function getVersion(asarDir) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(asarDir, "package.json"), "utf-8"));
+    return pkg.version || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+// ─── Main ───────────────────────────────────────────────────────
+
+function main() {
+  const args = process.argv.slice(2);
+  const platIdx = args.indexOf("--platform");
+  const platform = platIdx !== -1 ? args[platIdx + 1] : null;
+
+  if (!platform || !["mac-arm64", "mac-x64", "win"].includes(platform)) {
+    console.error("[x] Usage: build-from-upstream.js --platform <mac-arm64|mac-x64|win>");
+    process.exit(1);
+  }
+
+  console.log(`\n== Build from upstream: ${platform} ==\n`);
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  if (platform.startsWith("mac")) {
+    buildMac(platform);
+  } else {
+    buildWin(platform);
+  }
+}
+
+main();
