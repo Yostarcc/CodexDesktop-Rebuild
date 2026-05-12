@@ -91,6 +91,22 @@ function findPluginAuthPatches(ast, source) {
   return patches;
 }
 
+function findSidebarPluginNavPatches(source) {
+  const patches = [];
+  const from = "u=Xc(c)";
+  const idx = source.indexOf(from);
+  if (idx >= 0 && source.includes("pluginsDisabledTooltip")) {
+    patches.push({
+      id: "sidebar_plugin_nav_gate",
+      start: idx,
+      end: idx + from.length,
+      replacement: "u=!1",
+      original: from,
+    });
+  }
+  return patches;
+}
+
 // ──────────────────────────────────────────────
 //  Rule 2: Statsig gate bypasses — gt(`ID`) → !0
 //    410262010 — browser-use availability
@@ -161,6 +177,11 @@ function locateTargets(platform) {
           break;
         }
       }
+
+      // Sidebar plugin nav gate lives in app-main on this build.
+      if (src.includes("pluginsDisabledTooltip") && src.includes("u=Xc(c)")) {
+        targets.push({ platform: plat, path: fp, type: "sidebar_plugin_nav" });
+      }
     }
   }
 
@@ -202,6 +223,7 @@ function main() {
 
     const patches = [
       ...findPluginAuthPatches(ast, source),
+      ...findSidebarPluginNavPatches(source),
       ...findBrowserUsePatches(ast, source),
     ];
 
