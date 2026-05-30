@@ -8,18 +8,79 @@
  *   node scripts/patch-all.js win          # Patch win only
  *   node scripts/patch-all.js --check      # Dry-run all
  */
+const fs = require("fs");
 const { execFileSync } = require("child_process");
 const path = require("path");
+const { PROJECT_ROOT } = require("./patch-util");
 
 const PATCHES = [
   "patch-i18n.js",
+  "patch-sidebar-layout.js",
+  "patch-single-tooltip.js",
+  "patch-window-header-view-menu.js",
+  "patch-thread-header-actions.js",
+  "patch-composer-footer-layout.js",
+  "patch-composer-run-controls-inline.js",
+  "patch-composer-permissions-trigger.js",
+  "patch-primary-runtime-progress.js",
+  "patch-cursor-interaction.js",
   "patch-copyright.js",
   "patch-devtools.js",
   "patch-fast-mode.js",
   "patch-plugin-auth.js",
   "patch-updater.js",
-  "patch-archive-delete.js",
 ];
+
+const PURE_SRC_DIR = path.join(PROJECT_ROOT, "pure-src");
+const SRC_DIR = path.join(PROJECT_ROOT, "src");
+
+function copyRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyRecursive(srcPath, destPath);
+    } else if (entry.isSymbolicLink()) {
+      // skip symlinks in workspace copies
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function clearDirContents(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    return;
+  }
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    fs.rmSync(fullPath, { recursive: true, force: true });
+  }
+}
+
+function restoreSrcFromPure(platform) {
+  if (!fs.existsSync(PURE_SRC_DIR)) {
+    throw new Error(`pure-src not found: ${PURE_SRC_DIR}`);
+  }
+
+  const requested = platform === "unix" ? ["mac-arm64", "mac-x64"] : platform ? [platform] : ["mac-arm64", "mac-x64", "win"];
+  const available = requested.filter((name) => fs.existsSync(path.join(PURE_SRC_DIR, name)));
+
+  if (available.length === 0) {
+    throw new Error(`No pristine platform sources found in pure-src for: ${requested.join(", ")}`);
+  }
+
+  fs.mkdirSync(SRC_DIR, { recursive: true });
+
+  for (const name of available) {
+    const srcPlatformDir = path.join(PURE_SRC_DIR, name);
+    const destPlatformDir = path.join(SRC_DIR, name);
+    clearDirContents(destPlatformDir);
+    copyRecursive(srcPlatformDir, destPlatformDir);
+  }
+}
 
 function main() {
   const args = process.argv.slice(2);
@@ -27,12 +88,21 @@ function main() {
   const extra = args.filter((a) => a.startsWith("--"));
   const passArgs = [...(platform ? [platform] : []), ...extra];
 
+  if (!args.includes("--check")) {
+    restoreSrcFromPure(platform);
+  }
+
   let failed = 0;
 
   for (const script of PATCHES) {
     const scriptPath = path.join(__dirname, script);
     const label = script.replace(".js", "");
     console.log(`\n== ${label} ==`);
+
+    if (!fs.existsSync(scriptPath)) {
+      console.log(`  [skip] Missing script: ${script}`);
+      continue;
+    }
 
     try {
       execFileSync("node", [scriptPath, ...passArgs], { stdio: "inherit" });
