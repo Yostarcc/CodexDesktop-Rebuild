@@ -16,6 +16,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
+const tar = require("tar");
 
 const SRC = path.join(__dirname, "..", "src");
 const PROJECT_ROOT = path.join(__dirname, "..");
@@ -56,7 +57,7 @@ function copyRecursive(src, dest, skipFiles, skipDirs) {
  * Caches the result so npm pack runs at most once per build.
  */
 let _vendorRootCache = null;
-function ensureVendorExtracted(platform) {
+async function ensureVendorExtracted(platform) {
   if (_vendorRootCache !== undefined && _vendorRootCache !== null) return _vendorRootCache;
 
   const triple = TARGET_TRIPLE_MAP[platform];
@@ -103,7 +104,7 @@ function ensureVendorExtracted(platform) {
     const extractDir = path.join(tmpDir, "extracted");
     if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true });
     fs.mkdirSync(extractDir, { recursive: true });
-    execSync(`tar xzf "${path.join(tmpDir, tgzName)}" -C "${extractDir}"`, { stdio: "pipe" });
+    await tar.x({ file: path.join(tmpDir, tgzName), cwd: extractDir });
 
     const vendorRoot = path.join(extractDir, "package", "vendor", triple);
     if (fs.existsSync(vendorRoot)) { _vendorRootCache = vendorRoot; return vendorRoot; }
@@ -114,23 +115,23 @@ function ensureVendorExtracted(platform) {
   return null;
 }
 
-function resolveCodexVendor(platform) {
-  const vendorRoot = ensureVendorExtracted(platform);
+async function resolveCodexVendor(platform) {
+  const vendorRoot = await ensureVendorExtracted(platform);
   if (!vendorRoot) return null;
   const binName = platform === "win" ? "codex.exe" : "codex";
   const p = path.join(vendorRoot, "codex", binName);
   return fs.existsSync(p) ? p : null;
 }
 
-function resolveRgVendor(platform) {
-  const vendorRoot = ensureVendorExtracted(platform);
+async function resolveRgVendor(platform) {
+  const vendorRoot = await ensureVendorExtracted(platform);
   if (!vendorRoot) return null;
   const binName = platform === "win" ? "rg.exe" : "rg";
   const p = path.join(vendorRoot, "path", binName);
   return fs.existsSync(p) ? p : null;
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const platIdx = args.indexOf("--platform");
   const platform = platIdx !== -1 ? args[platIdx + 1] : null;
@@ -170,7 +171,7 @@ function main() {
   // 2. Replace codex binary with @cometix/codex
   const isWin = platform === "win";
   const codexBinName = isWin ? "codex.exe" : "codex";
-  const vendorCodex = resolveCodexVendor(platform);
+  const vendorCodex = await resolveCodexVendor(platform);
   if (vendorCodex) {
     // For Linux: put codex in sourceDir (mac-x64/) so it can be found,
     // but also mark for later copy to forge output.
@@ -184,7 +185,7 @@ function main() {
 
   // 2b. For Linux: replace rg with platform-native version from @cometix/codex
   if (isLinux) {
-    const vendorRg = resolveRgVendor(platform);
+    const vendorRg = await resolveRgVendor(platform);
     if (vendorRg) {
       const dest = path.join(sourceDir, "rg");
       fs.copyFileSync(vendorRg, dest);
@@ -255,4 +256,7 @@ function main() {
   console.log(`   [ok] src/ ready for ${platform} build`);
 }
 
-main();
+main().catch((e) => {
+  console.error(`[x] ${e.message}`);
+  process.exit(1);
+});

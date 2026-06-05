@@ -6,11 +6,13 @@ node_modules/
 
 # Build outputs
 out/
+out-*/
 dist/
 
 # Upstream ASAR extracts and build-time copies (all generated)
 src/
 src/.build-mode
+pure-src/
 
 # Version check state (local only)
 scripts/.versions.json

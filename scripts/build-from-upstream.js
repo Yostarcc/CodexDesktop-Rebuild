@@ -9,14 +9,35 @@
  *   node scripts/build-from-upstream.js --platform mac-arm64
  *   node scripts/build-from-upstream.js --platform mac-x64
  *   node scripts/build-from-upstream.js --platform win
+ *   node scripts/build-from-upstream.js --platform win --skip-patches
+ *   node scripts/build-from-upstream.js --platform win --with-zip
+ *   node scripts/build-from-upstream.js --platform win --out-dir out-custom
  */
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process");
+const tar = require("tar");
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(PROJECT_ROOT, "src");
-const OUT_DIR = path.join(PROJECT_ROOT, "out");
+
+function makeTimestamp() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return [
+    now.getFullYear(),
+    pad(now.getMonth() + 1),
+    pad(now.getDate()),
+    pad(now.getHours()),
+    pad(now.getMinutes()),
+    pad(now.getSeconds()),
+  ].join("");
+}
+
+const outDirArgIndex = process.argv.indexOf("--out-dir");
+const OUT_DIR = outDirArgIndex !== -1
+  ? path.resolve(PROJECT_ROOT, process.argv[outDirArgIndex + 1])
+  : path.join(PROJECT_ROOT, `out-${makeTimestamp()}`);
 
 const TARGET_TRIPLE_MAP = {
   "mac-arm64": "aarch64-apple-darwin",
@@ -49,7 +70,12 @@ function copyRecursive(src, dest) {
   return count;
 }
 
-function resolveCodexVendor(platform) {
+function runPatches(platform) {
+  console.log(`   [patch] patch-all ${platform}`);
+  execFileSync("node", [path.join(__dirname, "patch-all.js"), platform], { stdio: "inherit" });
+}
+
+async function resolveCodexVendor(platform) {
   const triple = TARGET_TRIPLE_MAP[platform];
   if (!triple) return null;
   const binName = platform === "win" ? "codex.exe" : "codex";
@@ -91,7 +117,7 @@ function resolveCodexVendor(platform) {
     }).trim().split("\n").pop();
     const extractDir = path.join(tmpDir, "extracted");
     clearDir(extractDir);
-    execSync(`tar xzf "${path.join(tmpDir, tgzName)}" -C "${extractDir}"`, { stdio: "pipe" });
+    await tar.x({ file: path.join(tmpDir, tgzName), cwd: extractDir });
     const p = path.join(extractDir, "package", "vendor", triple, "codex", binName);
     if (fs.existsSync(p)) return p;
   } catch (e) {
@@ -102,7 +128,7 @@ function resolveCodexVendor(platform) {
 
 // ─── macOS build ────────────────────────────────────────────────
 
-function buildMac(platform) {
+async function buildMac(platform) {
   const platformDir = path.join(SRC_DIR, platform);
   const asarDir = path.join(platformDir, "_asar");
 
@@ -162,7 +188,7 @@ function buildMac(platform) {
   try { execSync(`xattr -rd com.apple.quarantine "${outApp}"`, { stdio: "pipe" }); } catch {}
 
   // 6. Replace codex CLI
-  replaceCodex(platform, resourcesDir, "codex");
+  await replaceCodex(platform, resourcesDir, "codex");
 
   // 7. Ad-hoc re-sign (prevents "damaged app" Gatekeeper error)
   console.log("   [codesign] ad-hoc signing");
@@ -185,7 +211,8 @@ function buildMac(platform) {
 
 // ─── Windows build ──────────────────────────────────────────────
 
-function buildWin(platform) {
+async function buildWin(platform, options = {}) {
+  const { withZip = false } = options;
   const platformDir = path.join(SRC_DIR, platform);
   const asarDir = path.join(platformDir, "_asar");
 
@@ -227,27 +254,34 @@ function buildWin(platform) {
   console.log(`   [integrity] new hash: ${newHash.slice(0, 16)}...`);
 
   if (oldHash !== newHash) {
-    // Find Codex.exe in app root
-    const exePath = path.join(outApp, "Codex.exe");
-    if (fs.existsSync(exePath)) {
-      patchExeHash(exePath, oldHash, newHash);
-    } else {
-      console.log("   [!] Codex.exe not found for hash patching");
-    }
+    updateWindowsRuntimeIntegrity(resourcesDir, asarPath);
   }
 
   // Replace codex CLI
-  replaceCodex(platform, resourcesDir, "codex.exe");
+  await replaceCodex(platform, resourcesDir, "codex.exe");
 
-  // Create ZIP
   const version = getVersion(asarDir);
-  const zipName = `Codex-win-x64-${version}.zip`;
-  const zipPath = path.join(OUT_DIR, zipName);
-  console.log(`   [zip] ${zipName}`);
-  execSync(`7zz a -tzip -mx=5 "${zipPath}" .`, { cwd: outApp });
+  let zipPath = null;
+  if (withZip) {
+    const zipName = `Codex-win-x64-${version}.zip`;
+    zipPath = path.join(OUT_DIR, zipName);
+    console.log(`   [zip] ${zipName}`);
+    const ps = [
+      "$ErrorActionPreference='Stop'",
+      `$src='${outApp.replace(/'/g, "''")}'`,
+      `$zip='${zipPath.replace(/'/g, "''")}'`,
+      "if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }",
+      "Compress-Archive -Path (Join-Path $src '*') -DestinationPath $zip -CompressionLevel Optimal -Force",
+    ].join("; ");
+    execSync(`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "${ps}"`, { stdio: "pipe" });
 
-  const sizeMB = (fs.statSync(zipPath).size / 1048576).toFixed(1);
-  console.log(`   [ok] ${zipPath} (${sizeMB} MB)`);
+    const sizeMB = (fs.statSync(zipPath).size / 1048576).toFixed(1);
+    console.log(`   [ok] ${zipPath} (${sizeMB} MB)`);
+  } else {
+    console.log("   [zip] skipped");
+  }
+
+  console.log(`   [output] ${outApp}`);
 }
 
 // ─── ASAR integrity ─────────────────────────────────────────────
@@ -273,6 +307,25 @@ function patchExeHash(exePath, oldHash, newHash) {
   console.log(`   [integrity] exe hash patched at offset ${idx}`);
 }
 
+function computeFileSha256(filePath) {
+  const crypto = require("crypto");
+  return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+function updateWindowsRuntimeIntegrity(resourcesDir, asarPath) {
+  const owlConfigPath = path.join(resourcesDir, "owl-electron-app.json");
+  if (!fs.existsSync(owlConfigPath)) {
+    console.log("   [!] owl-electron-app.json not found for runtime integrity patching");
+    return;
+  }
+
+  const runtimeSha = computeFileSha256(asarPath);
+  const config = JSON.parse(fs.readFileSync(owlConfigPath, "utf-8"));
+  config.runtimeArchiveSha = runtimeSha;
+  fs.writeFileSync(owlConfigPath, JSON.stringify(config, null, 2) + "\n");
+  console.log(`   [integrity] runtimeArchiveSha updated: ${runtimeSha.slice(0, 16)}...`);
+}
+
 function updateAsarIntegrity(asarPath, infoPlistPath) {
   const newHash = computeAsarHeaderHash(asarPath);
   execSync(`plutil -replace ElectronAsarIntegrity.Resources/app\\\\.asar.hash -string "${newHash}" "${infoPlistPath}"`, { stdio: "pipe" });
@@ -289,8 +342,8 @@ function updateAsarIntegrity(asarPath, infoPlistPath) {
 
 // ─── Shared ─────────────────────────────────────────────────────
 
-function replaceCodex(platform, resourcesDir, binName) {
-  const vendor = resolveCodexVendor(platform);
+async function replaceCodex(platform, resourcesDir, binName) {
+  const vendor = await resolveCodexVendor(platform);
   if (vendor) {
     const dest = path.join(resourcesDir, binName);
     fs.copyFileSync(vendor, dest);
@@ -312,10 +365,12 @@ function getVersion(asarDir) {
 
 // ─── Main ───────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const platIdx = args.indexOf("--platform");
   const platform = platIdx !== -1 ? args[platIdx + 1] : null;
+  const skipPatches = args.includes("--skip-patches");
+  const withZip = args.includes("--with-zip");
 
   if (!platform || !["mac-arm64", "mac-x64", "win"].includes(platform)) {
     console.error("[x] Usage: build-from-upstream.js --platform <mac-arm64|mac-x64|win>");
@@ -323,13 +378,22 @@ function main() {
   }
 
   console.log(`\n== Build from upstream: ${platform} ==\n`);
-  fs.mkdirSync(OUT_DIR, { recursive: true });
+  console.log(`   [out] ${OUT_DIR}`);
+  clearDir(OUT_DIR);
+  if (skipPatches) {
+    console.log("   [patch] skipped (using current src as-is)");
+  } else {
+    runPatches(platform);
+  }
 
   if (platform.startsWith("mac")) {
-    buildMac(platform);
+    await buildMac(platform);
   } else {
-    buildWin(platform);
+    await buildWin(platform, { withZip });
   }
 }
 
-main();
+main().catch((e) => {
+  console.error(`[x] ${e.message}`);
+  process.exit(1);
+});

@@ -3,7 +3,7 @@
  * sync-upstream.js — Extract full upstream Codex resources
  *
  * Output structure per platform:
- *   src/{platform}/
+ *   pure-src/{platform}/
  *     _asar/              Extracted app.asar content (patch target)
  *     app.asar.unpacked/  Native modules (kept as-is from upstream)
  *     codex|codex.exe     CLI binary (will be replaced by @cometix/codex)
@@ -34,6 +34,7 @@ https.globalAgent.options.ca = extraCAs;
 
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(PROJECT_ROOT, "src");
+const PURE_SRC_DIR = path.join(PROJECT_ROOT, "pure-src");
 const TEMP_DIR = path.join(require("os").tmpdir(), "codex-sync");
 const VERSION_FILE = path.join(__dirname, ".versions.json");
 
@@ -66,10 +67,28 @@ function curlDownload(url, dest, label) {
   execSync(`curl -L --retry 3 --retry-delay 2 -o "${dest}" "${url}"`, { stdio: "inherit" });
 }
 
+function extractZipLikeArchiveOnWindows(archive, dest) {
+  const zipPath = archive.toLowerCase().endsWith(".zip")
+    ? archive
+    : path.join(path.dirname(archive), `${path.basename(archive, path.extname(archive))}.zip`);
+  if (zipPath !== archive) fs.copyFileSync(archive, zipPath);
+  const ps = [
+    "$ErrorActionPreference='Stop'",
+    `$zip='${zipPath.replace(/'/g, "''")}'`,
+    `$dest='${dest.replace(/'/g, "''")}'`,
+    "if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }",
+    "New-Item -Path $dest -ItemType Directory | Out-Null",
+    "Expand-Archive -LiteralPath $zip -DestinationPath $dest -Force",
+  ].join("; ");
+  execSync(`pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "${ps}"`, { stdio: "pipe" });
+}
+
 function extractArchive(archive, dest) {
   if (process.platform === "darwin" && archive.endsWith(".zip")) {
     // ditto preserves macOS symlinks + resource forks (required for .app)
     execSync(`ditto -xk "${archive}" "${dest}"`);
+  } else if (process.platform === "win32") {
+    extractZipLikeArchiveOnWindows(archive, dest);
   } else {
     // 7zz for Windows MSIX and Linux (symlinks don't matter — only ASAR content used)
     for (const bin of ["7zz", "7z"]) {
@@ -103,6 +122,37 @@ function copyRecursive(src, dest) {
     else { fs.copyFileSync(s, d); count++; }
   }
   return count;
+}
+
+function ensureDecodedScopeAliases(rootDir) {
+  if (!fs.existsSync(rootDir)) return 0;
+
+  let created = 0;
+  const stack = [rootDir];
+
+  while (stack.length > 0) {
+    const currentDir = stack.pop();
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      const sourceDir = path.join(currentDir, entry.name);
+      stack.push(sourceDir);
+
+      if (!entry.name.startsWith("%40")) continue;
+
+      const decodedName = `@${entry.name.slice(3)}`;
+      const aliasDir = path.join(currentDir, decodedName);
+      if (fs.existsSync(aliasDir)) continue;
+
+      fs.cpSync(sourceDir, aliasDir, { recursive: true });
+      created++;
+      stack.push(aliasDir);
+    }
+  }
+
+  return created;
 }
 
 function clearDir(dir) {
@@ -217,6 +267,12 @@ function assembleOutput(resourcesDir, destDir, label) {
   const asarPath = path.join(resourcesDir, "app.asar");
   if (!fs.existsSync(asarPath)) throw new Error(`${label}: app.asar not found`);
 
+  const unpackedDir = path.join(resourcesDir, "app.asar.unpacked");
+  const aliasCount = ensureDecodedScopeAliases(unpackedDir);
+  if (aliasCount > 0) {
+    console.log(`   [compat] created ${aliasCount} decoded scope alias dir(s) in app.asar.unpacked`);
+  }
+
   console.log(`   [assemble] -> ${path.relative(PROJECT_ROOT, destDir)}/`);
   clearDir(destDir);
 
@@ -301,17 +357,17 @@ async function main() {
   // Download and extract
   if (!SKIP_MAC && results["mac-arm64"]) {
     try {
-      results["mac-arm64"] = await syncMac("arm64", APPCAST_ARM64, path.join(SRC_DIR, "mac-arm64"));
+      results["mac-arm64"] = await syncMac("arm64", APPCAST_ARM64, path.join(PURE_SRC_DIR, "mac-arm64"));
     } catch (e) { console.error(`   [x] mac-arm64: ${e.message}`); }
   }
   if (!SKIP_MAC && results["mac-x64"]) {
     try {
-      results["mac-x64"] = await syncMac("x64", APPCAST_X64, path.join(SRC_DIR, "mac-x64"));
+      results["mac-x64"] = await syncMac("x64", APPCAST_X64, path.join(PURE_SRC_DIR, "mac-x64"));
     } catch (e) { console.error(`   [x] mac-x64: ${e.message}`); }
   }
   if (!SKIP_WIN && results.win) {
     try {
-      results.win = await syncWin(path.join(SRC_DIR, "win"));
+      results.win = await syncWin(path.join(PURE_SRC_DIR, "win"));
     } catch (e) { console.error(`   [x] win: ${e.message}`); }
   }
 
