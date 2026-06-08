@@ -1,20 +1,11 @@
 #!/usr/bin/env node
 /**
- * Post-build patch: Remove specific sidebar UI entries structurally and
- * adjust project row affordances.
+ * Post-build patch:
+ * - remove the top "New chat" action item from sidebar nav
+ * - make per-project hover actions collapse to zero width while hidden
  *
- * Requested UI changes:
- * 1. Remove top "New chat" action item from sidebar nav.
- * 2. Remove "Chats/Conversations" section under "Projects / Chats".
- * 3. Remove the "Codex mobile" sidebar entry shown under the Automation area.
- *
- * Strategy:
- * - Parse app-main-*.js with Acorn.
- * - Find the JSX call that renders the top "new chat" control by its props
- *   (`canStartProjectlessChat` + `newChatMessage` + `onStartChat`) and
- *   replace it with `null`.
- * - Find the section-order seed that expands to `chats/threads`
- *   and force it to [`threads`] only.
+ * This keeps the existing sidebar structure and reuses the current hover/dropdown
+ * behavior with the smallest possible string-level bundle patch.
  */
 const fs = require("fs");
 const path = require("path");
@@ -49,23 +40,6 @@ function getPropName(prop) {
   return null;
 }
 
-function getLiteralValue(node) {
-  if (!node) return null;
-  if (node.type === "Literal") return node.value;
-  if (node.type === "TemplateLiteral" && node.expressions.length === 0 && node.quasis.length === 1) {
-    return node.quasis[0].value.cooked;
-  }
-  return null;
-}
-
-function isChatsThreadsArray(node) {
-  if (!node || node.type !== "ArrayExpression") return false;
-  const values = node.elements.map(getLiteralValue).filter((value) => typeof value === "string");
-  if (values.length !== node.elements.length) return false;
-  if (!values.includes("chats") || !values.includes("threads")) return false;
-  return values.every((value) => value === "chats" || value === "threads");
-}
-
 function locateTargets(platform) {
   const platforms = platform
     ? [platform]
@@ -87,88 +61,65 @@ function locateTargets(platform) {
 
 function collectPatches(ast, source) {
   const patches = [];
-  if (source.includes("function nC(e){return null}")) return patches;
 
-  const localProjectMenuTrigger =
-    "F=(0,Q.jsx)(`div`,{className:`pr-0.5`,children:(0,Q.jsx)(M,{className:`h-6 w-6 rounded-md !p-1`,color:`ghostMuted`,size:`icon`,\"aria-label\":N,\"aria-haspopup\":`menu`,\"aria-expanded\":l,onClick:SE,children:P})}),t[9]=M,t[10]=l,t[11]=N,t[12]=F):F=t[12];";
-  if (source.includes(localProjectMenuTrigger)) {
-    patches.push({
-      id: "hide_local_project_menu_trigger_button_only",
-      start: source.indexOf(localProjectMenuTrigger),
-      end: source.indexOf(localProjectMenuTrigger) + localProjectMenuTrigger.length,
-      replacement:
-        "F=(0,Q.jsx)(`div`,{className:`pr-0.5 w-0 overflow-hidden opacity-0 pointer-events-none`,children:(0,Q.jsx)(M,{className:`h-6 w-6 rounded-md !p-1`,color:`ghostMuted`,size:`icon`,\"aria-label\":N,\"aria-haspopup\":`menu`,\"aria-expanded\":l,onClick:SE,children:P})}),t[9]=M,t[10]=l,t[11]=N,t[12]=F):F=t[12];",
-      original: localProjectMenuTrigger,
-    });
-  }
+  const literalReplacements = [
+    {
+      id: "project_row_track_hover_state",
+      from: "let ie=re,[ae,oe]=(0,$.useState)(!1),se=n.projectKind===`remote`&&n.hostId==null,ce;",
+      to: "let ie=re,[ae,oe]=(0,$.useState)(!1),[__projectRowHovered,__setProjectRowHovered]=(0,$.useState)(!1),se=n.projectKind===`remote`&&n.hostId==null,ce;",
+    },
+    {
+      id: "project_row_pass_hover_state",
+      from: "workspaceDropdownOpen:ae,onWorkspaceDropdownOpenChange:oe,showProjectPinAction:l})",
+      to: "workspaceDropdownOpen:ae,onWorkspaceDropdownOpenChange:oe,showProjectPinAction:l,isRowHovered:__projectRowHovered})",
+    },
+    {
+      id: "project_row_bind_hover_handlers",
+      from: "onContextMenu:xe,\"aria-label\":S,\"aria-current\":Se,\"aria-expanded\":Ce,children:[Le,He,Ue]}),",
+      to: "onContextMenu:xe,onMouseEnter:()=>{__setProjectRowHovered(!0)},onMouseLeave:()=>{__setProjectRowHovered(!1)},\"aria-label\":S,\"aria-current\":Se,\"aria-expanded\":Ce,children:[Le,He,Ue]}),",
+    },
+    {
+      id: "project_actions_use_hover_state",
+      from: "function mE(e){let t=(0,Z.c)(49),{group:n,threadKeys:r,collapsedStatusState:i,projectHeaderMenuKind:a,canCreateStableWorktree:o,onStartNewThread:s,onShowProjectHome:c,newThreadLabel:l,canStartNewThread:u,newThreadDisabledLabel:d,workspaceDropdownOpen:f,onWorkspaceDropdownOpenChange:p,showProjectPinAction:m}=e,h=J(Fo),g=J(Pp),_=J(Wp),v=f?`opacity-100`:`opacity-0 group-hover/folder-row:opacity-100`,y;",
+      to: "function mE(e){let t=(0,Z.c)(49),{group:n,threadKeys:r,collapsedStatusState:i,projectHeaderMenuKind:a,canCreateStableWorktree:o,onStartNewThread:s,onShowProjectHome:c,newThreadLabel:l,canStartNewThread:u,newThreadDisabledLabel:d,workspaceDropdownOpen:f,onWorkspaceDropdownOpenChange:p,showProjectPinAction:m,isRowHovered:h0}=e,h=J(Fo),g=J(Pp),_=J(Wp),v=h0||f?`opacity-100`:`opacity-0`,y;",
+    },
+    {
+      id: "project_local_menu_zero_width_when_hidden",
+      from: "y=a===`local`&&(0,Q.jsx)(`div`,{className:v,children:(0,Q.jsx)(xE,{project:n,threadKeys:r,currentThreadKey:h,canCreateStableWorktree:o,workspaceRootOptions:g,workspaceRootLabels:_,onArchivedCurrentThread:c,open:f,onOpenChange:p,showProjectPinAction:m})})",
+      to: "y=a===`local`&&(0,Q.jsx)(`div`,{style:h0||f?void 0:{width:0,overflow:`hidden`,pointerEvents:`none`},className:v,children:(0,Q.jsx)(xE,{project:n,threadKeys:r,currentThreadKey:h,canCreateStableWorktree:o,workspaceRootOptions:g,workspaceRootLabels:_,onArchivedCurrentThread:c,open:f,onOpenChange:p,showProjectPinAction:m})})",
+    },
+    {
+      id: "project_remote_menu_zero_width_when_hidden",
+      from: "b=a===`remote`&&n.path!=null&&(0,Q.jsx)(`div`,{className:v,children:(0,Q.jsx)(wE,{hostId:n.hostId,projectId:n.projectId,remotePath:n.path,groupLabel:n.label,threadKeys:r,currentThreadKey:h,onArchivedCurrentThread:c,open:f,onOpenChange:p,showProjectPinAction:m})})",
+      to: "b=a===`remote`&&n.path!=null&&(0,Q.jsx)(`div`,{style:h0||f?void 0:{width:0,overflow:`hidden`,pointerEvents:`none`},className:v,children:(0,Q.jsx)(wE,{hostId:n.hostId,projectId:n.projectId,remotePath:n.path,groupLabel:n.label,threadKeys:r,currentThreadKey:h,onArchivedCurrentThread:c,open:f,onOpenChange:p,showProjectPinAction:m})})",
+    },
+    {
+      id: "project_new_thread_zero_width_when_hidden",
+      from: "D=(0,Q.jsx)(`span`,{className:S,children:E})",
+      to: "D=(0,Q.jsx)(`span`,{style:h0||f?void 0:{width:0,overflow:`hidden`,pointerEvents:`none`},className:S,children:E})",
+    },
+    {
+      id: "project_status_slot_zero_width_without_status_or_hover",
+      from: "k=(0,Q.jsxs)(`div`,{className:`relative mr-0.5 h-6 w-6 shrink-0`,children:[x,O]})",
+      to: "k=h0||f||i!=null?(0,Q.jsxs)(`div`,{className:`relative mr-0.5 h-6 w-6 shrink-0`,children:[x,O]}):(0,Q.jsx)(`div`,{style:{width:0,overflow:`hidden`}})",
+    },
+  ];
 
-  const remoteProjectMenuTrigger =
-    "V=(0,Q.jsx)(`div`,{className:`pr-0.5`,children:B}),t[37]=B,t[38]=P,t[39]=V):V=t[39];";
-  if (source.includes(remoteProjectMenuTrigger)) {
+  for (const replacement of literalReplacements) {
+    const { id, from, to } = replacement;
+    if (source.includes(to)) continue;
+    const start = source.indexOf(from);
+    if (start === -1) continue;
     patches.push({
-      id: "hide_remote_project_menu_trigger_button_only",
-      start: source.indexOf(remoteProjectMenuTrigger),
-      end: source.indexOf(remoteProjectMenuTrigger) + remoteProjectMenuTrigger.length,
-      replacement:
-        "V=(0,Q.jsx)(`div`,{className:`pr-0.5 w-0 overflow-hidden opacity-0 pointer-events-none`,children:B}),t[37]=B,t[38]=P,t[39]=V):V=t[39];",
-      original: remoteProjectMenuTrigger,
-    });
-  }
-
-  const projectLabelTooltip =
-    "Ne=(0,Q.jsx)(nE,{label:n.label,suffix:Ae,suffixEnd:je,suffixTooltipContent:Me}),t[54]=n.label,t[55]=Ae,t[56]=je,t[57]=Me,t[58]=Ne):Ne=t[58];";
-  if (source.includes(projectLabelTooltip)) {
-    patches.push({
-      id: "add_project_path_tooltip_for_local_and_remote_rows",
-      start: source.indexOf(projectLabelTooltip),
-      end: source.indexOf(projectLabelTooltip) + projectLabelTooltip.length,
-      replacement:
-        "Ne=(0,Q.jsx)(nE,{label:n.label,labelTooltipContent:n.path??null,suffix:Ae,suffixEnd:je,suffixTooltipContent:Me}),t[54]=n.label,t[55]=Ae,t[56]=je,t[57]=Me,t[58]=Ne):Ne=t[58];",
-      original: projectLabelTooltip,
-    });
-  }
-
-  const remoteProjectLabelTooltip =
-    "se=(0,Q.jsx)(`span`,{className:`flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap`,children:(0,Q.jsx)(nE,{label:T,labelEnd:ae,labelTooltipContent:oe})}),t[65]=T,t[66]=ae,t[67]=oe,t[68]=se):se=t[68];";
-  if (source.includes(remoteProjectLabelTooltip)) {
-    patches.push({
-      id: "add_project_path_tooltip_for_connection_rows",
-      start: source.indexOf(remoteProjectLabelTooltip),
-      end: source.indexOf(remoteProjectLabelTooltip) + remoteProjectLabelTooltip.length,
-      replacement:
-        "se=(0,Q.jsx)(`span`,{className:`flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap`,children:(0,Q.jsx)(nE,{label:T,labelEnd:ae,labelTooltipContent:n.path??null,suffixTooltipContent:oe})}),t[65]=T,t[66]=ae,t[67]=oe,t[68]=se):se=t[68];",
-      original: remoteProjectLabelTooltip,
-    });
-  }
-
-  const labelTooltipComponent =
-    "u=o==null?l:(0,Q.jsx)(hs,{delayOpen:!0,tooltipContent:o,children:l}),t[2]=l,t[3]=o,t[4]=u):u=t[4];";
-  if (source.includes(labelTooltipComponent)) {
-    patches.push({
-      id: "make_project_label_tooltips_instant",
-      start: source.indexOf(labelTooltipComponent),
-      end: source.indexOf(labelTooltipComponent) + labelTooltipComponent.length,
-      replacement:
-        "u=o==null?l:(0,Q.jsx)(hs,{delayOpen:0,tooltipContent:o,children:l}),t[2]=l,t[3]=o,t[4]=u):u=t[4];",
-      original: labelTooltipComponent,
+      id,
+      start,
+      end: start + from.length,
+      replacement: to,
+      original: from,
     });
   }
 
   walk(ast, (node) => {
-    if (node.type === "FunctionDeclaration" && node.id?.name === "nC") {
-      const original = source.slice(node.start, node.end);
-      if (original !== "function nC(e){return null}") {
-        patches.push({
-          id: "remove_codex_mobile_sidebar_entry",
-          start: node.start,
-          end: node.end,
-          replacement: "function nC(e){return null}",
-          original,
-        });
-      }
-      return;
-    }
-
     if (node.type === "CallExpression") {
       if (node.arguments.length >= 2 && node.arguments[0].type === "Identifier") {
         const arg1 = node.arguments[1];
@@ -191,23 +142,6 @@ function collectPatches(ast, source) {
             }
           }
         }
-      }
-    }
-
-    if (node.type === "VariableDeclarator" && node.init) {
-      const init = node.init;
-      const isMatch = init.type === "ConditionalExpression"
-        && isChatsThreadsArray(init.consequent)
-        && isChatsThreadsArray(init.alternate);
-      if (isMatch) {
-        const initSrc = source.slice(node.init.start, node.init.end);
-        patches.push({
-          id: "remove_chats_section",
-          start: node.init.start,
-          end: node.init.end,
-          replacement: "[`threads`]",
-          original: initSrc,
-        });
       }
     }
   });
@@ -241,20 +175,8 @@ function main() {
 
     const patches = collectPatches(ast, source);
     if (patches.length === 0) {
-      if (source.includes("function nC(e){return null}")) {
-        console.log(`  [${target.platform}] [ok] no changes needed: ${relPath(target.path)}`);
-        continue;
-      }
-      if (source.includes("className:`pr-0.5`,children:(0,Q.jsx)(M,{className:`h-6 w-6 rounded-md !p-1`") ||
-          source.includes("className:`pr-0.5`,children:B}),t[37]=B,t[38]=P,t[39]=V):V=t[39];")) {
-        console.log(`  [${target.platform}] [!] project row menu trigger target changed: ${relPath(target.path)}`);
-        unresolved += 1;
-      } else
       if (source.includes("newChatMessage") && source.includes("onStartChat")) {
         console.log(`  [${target.platform}] [!] sidebar patch targets changed: ${relPath(target.path)}`);
-        unresolved += 1;
-      } else if (source.includes("sidebarElectron.codexMobileSetupNavLink")) {
-        console.log(`  [${target.platform}] [!] codex mobile sidebar target changed: ${relPath(target.path)}`);
         unresolved += 1;
       } else {
         console.log(`  [${target.platform}] [ok] no changes needed: ${relPath(target.path)}`);
