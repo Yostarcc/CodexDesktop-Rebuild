@@ -2,20 +2,19 @@
 /**
  * Post-build patch: Force-enable Fast mode (speed selector)
  *
- * The speed selector is gated by authMethod === "chatgpt" checks.
- * API-key users never see it because their authMethod differs.
+ * Upstream has used two different gate styles:
+ * 1. Older bundles: authMethod comparisons around `chatgpt`
+ * 2. Current bundles: service-tier checks that only allow fast_mode
+ *    when authMethod is `chatgpt`
  *
- * This patch locates BinaryExpression nodes matching:
- *   X.authMethod !== "chatgpt"
- * inside functions that also reference "fast_mode", and replaces
- * the comparison with !1 (always false), removing the auth gate.
- *
- * Target: permissions-mode-helpers-*.js (or any chunk with the pattern)
+ * This patch handles both by:
+ * - keeping the old AST-based auth gate removal
+ * - adding exact string replacements for the current service-tier gates
  */
 const fs = require("fs");
 const path = require("path");
 const { parse } = require("acorn");
-const { locateBundles, relPath, SRC_DIR } = require("./patch-util");
+const { relPath, SRC_DIR } = require("./patch-util");
 
 function walk(node, visitor) {
   if (!node || typeof node !== "object") return;
@@ -73,6 +72,40 @@ function collectPatches(ast, source) {
   return patches;
 }
 
+function collectStringPatches(source) {
+  const patterns = [
+    {
+      id: "fast_mode_service_tier_hook_gate",
+      original:
+        "a&&!u&&c!=null&&c?.requirements?.featureRequirements?.fast_mode!==!1",
+      replacement:
+        "!u&&c!=null&&c?.requirements?.featureRequirements?.fast_mode!==!1",
+    },
+    {
+      id: "fast_mode_service_tier_read_gate",
+      original:
+        "n===`chatgpt`?(await e.query.fetch(c,{authMethod:n,hostId:t})).requirements?.featureRequirements?.fast_mode!==!1:!1",
+      replacement:
+        "(await e.query.fetch(c,{authMethod:n,hostId:t})).requirements?.featureRequirements?.fast_mode!==!1",
+    },
+  ];
+
+  const patches = [];
+
+  for (const pattern of patterns) {
+    const start = source.indexOf(pattern.original);
+    if (start === -1) continue;
+
+    patches.push({
+      ...pattern,
+      start,
+      end: start + pattern.original.length,
+    });
+  }
+
+  return patches;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const isCheck = args.includes("--check");
@@ -118,7 +151,10 @@ function main() {
       continue;
     }
 
-    const patches = collectPatches(ast, source);
+    const patches = [
+      ...collectPatches(ast, source),
+      ...collectStringPatches(source),
+    ];
 
     if (patches.length === 0) continue;
 
