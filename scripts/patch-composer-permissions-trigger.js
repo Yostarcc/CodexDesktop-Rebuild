@@ -11,9 +11,9 @@ const RULE = {
   id: "remove_permissions_trigger_label",
   filePattern: /^composer-.*\.js$/,
   from:
-    "let c;t[68]!==i||t[69]!==s||t[70]!==Fe?(c=(0,Q.jsxs)($t,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,i,s]}),t[68]=i,t[69]=s,t[70]=Fe,t[71]=c):c=t[71],nt=c",
+    "let c;t[70]===s?c=t[71]:(c=(0,Z.jsx)(ze,{className:s}),t[70]=s,t[71]=c);let l;t[72]!==i||t[73]!==c||t[74]!==Je?(l=(0,Z.jsxs)(We,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,i,c]}),t[72]=i,t[73]=c,t[74]=Je,t[75]=l):l=t[75],gt=l",
   to:
-    "let c;t[68]!==s||t[69]!==Fe?(c=(0,Q.jsxs)($t,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,s]}),t[68]=s,t[69]=Fe,t[70]=c):c=t[70],nt=c",
+    "let c;t[70]===s?c=t[71]:(c=(0,Z.jsx)(ze,{className:s}),t[70]=s,t[71]=c);let l;t[72]!==c||t[73]!==Je?(l=(0,Z.jsxs)(We,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,c]}),t[72]=c,t[73]=Je,t[74]=l):l=t[74],gt=l",
 };
 
 function locateTargets(platform) {

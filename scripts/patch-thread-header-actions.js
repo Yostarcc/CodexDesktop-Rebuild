@@ -6,7 +6,7 @@
  * 1. Remove native `title` tooltips from buttons that already use the app tooltip layer.
  * 2. Add the app tooltip layer to the side/bottom panel tab switcher trigger.
  * 3. Replace the local thread "Open in" compound control with a single folder icon button.
- * 4. Replace the local thread summary panel toggle native tooltip with the app tooltip layer.
+ * 4. Remove the native tooltip from the local thread summary panel toggle.
  */
 const fs = require("fs");
 const path = require("path");
@@ -26,36 +26,36 @@ const TARGETS = [
       {
         id: "remove_thread_header_button_native_title",
         from:
-          "d=(0,Q.jsx)(F,{size:`toolbar`,color:u,\"aria-label\":i,\"aria-pressed\":s,disabled:l,title:i,onClick:a,uniform:!0,children:n})",
+          "d=(0,Gn.jsx)(j,{size:`toolbar`,color:u,\"aria-label\":i,\"aria-pressed\":s,disabled:l,title:i,onClick:a,uniform:!0,children:n})",
         to:
-          "d=(0,Q.jsx)(F,{size:`toolbar`,color:u,\"aria-label\":i,\"aria-pressed\":s,disabled:l,onClick:a,uniform:!0,children:n})",
+          "d=(0,Gn.jsx)(j,{size:`toolbar`,color:u,\"aria-label\":i,\"aria-pressed\":s,disabled:l,onClick:a,uniform:!0,children:n})",
       },
       {
         id: "add_tooltip_to_side_panel_tab_switcher_trigger",
         from:
-          "h=(0,Q.jsx)(F,{className:`data-[state=open]:!bg-token-foreground/5 data-[state=open]:!text-token-foreground`,color:`ghost`,size:`toolbar`,title:r,uniform:!0,children:m})",
+          "h=(0,$.jsx)(j,{className:`data-[state=open]:!bg-token-foreground/5 data-[state=open]:!text-token-foreground`,color:`ghost`,size:`toolbar`,title:r,uniform:!0,children:m})",
         to:
-          "h=(0,Q.jsx)(R,{tooltipContent:r,delayOpen:!0,children:(0,Q.jsx)(F,{className:`data-[state=open]:!bg-token-foreground/5 data-[state=open]:!text-token-foreground`,color:`ghost`,size:`toolbar`,\"aria-label\":r,uniform:!0,children:m})})",
+          "h=(0,$.jsx)(L,{tooltipContent:r,delayOpen:!0,children:(0,$.jsx)(j,{className:`data-[state=open]:!bg-token-foreground/5 data-[state=open]:!text-token-foreground`,color:`ghost`,size:`toolbar`,\"aria-label\":r,uniform:!0,children:m})})",
       },
       {
         id: "replace_open_in_compound_button_with_folder_icon",
         from:
-          "V=(0,Q.jsx)(S,{color:j,size:M,primaryDisabled:N,dropdownAlign:P,dropdownContentMaxHeight:F,dropdownContentWidth:w,dropdownContentClassName:E,primaryAriaLabel:D,tooltipContent:O,dropdownContent:k,onDropdownOpenChange:I,onClick:L,children:B})",
+          "let z;return t[40]!==_||t[41]!==b||t[42]!==x||t[43]!==C||t[44]!==P||t[45]!==F||t[46]!==R||t[47]!==E||t[48]!==D||t[49]!==O||t[50]!==k||t[51]!==A||t[52]!==j||t[53]!==M?(z=(0,Y.jsx)(_,{color:E,size:D,primaryDisabled:O,dropdownAlign:k,dropdownContentMaxHeight:A,dropdownContentWidth:j,dropdownContentClassName:M,primaryAriaLabel:b,tooltipContent:x,dropdownContent:C,onDropdownOpenChange:P,onClick:F,children:R}),t[40]=_,t[41]=b,t[42]=x,t[43]=C,t[44]=P,t[45]=F,t[46]=R,t[47]=E,t[48]=D,t[49]=O,t[50]=k,t[51]=A,t[52]=j,t[53]=M,t[54]=z):z=t[54],z}",
         to:
-          "V=(0,Q.jsx)(dt,{label:O??i.formatMessage(vt.openPrimaryTarget),onClick:L,color:`ghost`,disabled:N,children:(0,Q.jsx)(Le,{className:`icon-sm`})})",
+          "let z;return t[40]!==i||t[41]!==x||t[42]!==F||t[43]!==O?(z=(0,Y.jsx)(Un,{label:x??i.formatMessage(nr.openPrimaryTarget),onClick:F,disabled:O,children:(0,Y.jsx)(Jt,{className:`icon-sm`})}),t[40]=i,t[41]=x,t[42]=F,t[43]=O,t[44]=z):z=t[44],z}",
       },
     ],
   },
   {
     fileRe: /^local-conversation-thread-.*\.js$/,
-    markers: ["function el(e)", "Yc,{className:`icon-sm`}", "function tl(e)"],
+    markers: ["function cv(e)", "codex.localConversation.backgroundTasks.title.subagents"],
     rules: [
       {
-        id: "add_tooltip_to_summary_panel_header_button",
+        id: "remove_summary_panel_header_button_native_title",
         from:
-          "c=(0,$.jsx)(pt,{size:`toolbar`,color:o,\"aria-label\":r,\"aria-pressed\":a,title:r,onClick:i,uniform:!0,...n,children:s})",
+          "l=(0,dv.jsx)(Oe,{size:`toolbar`,color:s,\"aria-label\":r,\"aria-pressed\":a,title:r,onClick:i,uniform:!0,...n,children:c})",
         to:
-          "c=(0,$.jsx)(xt,{tooltipContent:r,delayOpen:!0,children:(0,$.jsx)(pt,{size:`toolbar`,color:o,\"aria-label\":r,\"aria-pressed\":a,onClick:i,uniform:!0,...n,children:s})})",
+          "l=(0,dv.jsx)(Oe,{size:`toolbar`,color:s,\"aria-label\":r,\"aria-pressed\":a,onClick:i,uniform:!0,...n,children:c})",
       },
     ],
   },
@@ -89,7 +89,7 @@ function locateTargets(platform) {
 
 function applyRule(code, rule) {
   if (code.includes(rule.to)) {
-    return { code, status: "already-applied" };
+    return { code, status: "applied" };
   }
   if (!code.includes(rule.from)) {
     return { code, status: "missing" };

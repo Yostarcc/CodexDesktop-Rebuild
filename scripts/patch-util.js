@@ -1,6 +1,5 @@
 /**
  * Shared utilities for patch scripts.
- * Provides multi-platform bundle location and common helpers.
  */
 const fs = require("fs");
 const path = require("path");
@@ -25,12 +24,6 @@ function locateBundles({ dir, pattern, platform }) {
     assets: (plat) => path.join(SRC_DIR, plat, "_asar", "webview", "assets"),
   };
 
-  // Legacy fallback paths (flat src/ without _asar subdirs)
-  const legacyMap = {
-    build: path.join(SRC_DIR, ".vite", "build"),
-    assets: path.join(SRC_DIR, "webview", "assets"),
-  };
-
   const getDir = dirMap[dir];
   if (!getDir) throw new Error(`Unknown dir type: ${dir}`);
 
@@ -39,18 +32,7 @@ function locateBundles({ dir, pattern, platform }) {
     ? [platform]
     : ALL_PLATFORMS.filter((p) => fs.existsSync(getDir(p)));
 
-  // Legacy fallback
   if (platforms.length === 0) {
-    const fallback = legacyMap[dir];
-    if (fallback && fs.existsSync(fallback)) {
-      const files = fs.readdirSync(fallback).filter((f) => pattern.test(f));
-      if (files.length > 0) {
-        // For build dir, prefer hashed file over plain
-        const target =
-          files.length > 1 ? files.find((f) => f !== "main.js") || files[0] : files[0];
-        return [{ platform: "legacy", path: path.join(fallback, target) }];
-      }
-    }
     return [];
   }
 

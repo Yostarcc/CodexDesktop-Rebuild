@@ -12,7 +12,6 @@
  *   node scripts/patch-devtools.js --check      # Dry-run: report matches
  */
 const fs = require("fs");
-const path = require("path");
 const { parse } = require("acorn");
 const { locateBundles, relPath } = require("./patch-util");
 

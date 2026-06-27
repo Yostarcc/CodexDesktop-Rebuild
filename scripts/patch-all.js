@@ -17,11 +17,10 @@ const PATCHES = [
   "patch-sidebar-layout.js",
   "patch-thread-header-actions.js",
   "patch-composer-footer-voice-btn.js",
-  "patch-composer-run-controls-inline.js",
+  "patch-composer-external-footer-and-inline-footer-run-controls.js",
   "patch-composer-permissions-trigger.js",
-  "patch-image-generation-config.js",
-  "patch-devtools.js",
   "patch-fast-mode.js",
+  "patch-devtools.js",
   "patch-updater.js",
 ];
 

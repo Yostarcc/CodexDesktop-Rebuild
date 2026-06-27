@@ -89,16 +89,12 @@ node tools/build-from-upstream.js --platform win
 
 - `patch-i18n.js`
 - `patch-sidebar-layout.js`
-- `patch-window-headermenu.js`
 - `patch-thread-header-actions.js`
-- `patch-composer-footer-layout.js`
-- `patch-composer-run-controls-inline.js`
+- `patch-composer-footer-voice-btn.js`
+- `patch-composer-footer-run-controls.js`
 - `patch-composer-permissions-trigger.js`
-- `patch-image-generation-config.js`
-- `patch-primary-runtime-progress.js`
 - `patch-devtools.js`
 - `patch-fast-mode.js`
-- `patch-plugin-auth.js`
 - `patch-updater.js`
 
 ## 可选补丁链路
@@ -195,7 +191,7 @@ rg -n "Qp.ExternalFooterSlot|localRemoteWhereRun|function Xm\\(e\\)|inline-compo
 
 - 只移除 footer 中插在发送按钮左侧的那颗 voice trigger
 - 不碰 stop / send / realtime 其他逻辑
-- 当前做法是在 `patch-composer-footer-layout.js` 中把 `Ue` 单独置空
+- 当前做法是在 `patch-composer-footer-voice-btn.js` 中把 voice trigger render 置空
 
 ## 不要再做的事
 

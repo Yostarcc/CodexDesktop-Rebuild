@@ -2,150 +2,42 @@
 /**
  * Post-build patch: Force-enable Fast mode (speed selector)
  *
- * Upstream has used two different gate styles:
- * 1. Older bundles: authMethod comparisons around `chatgpt`
- * 2. Current bundles: service-tier checks that only allow fast_mode
- *    when authMethod is `chatgpt`
- *
- * This patch handles both by:
- * - keeping the old AST-based auth gate removal
- * - adding exact string replacements for the current service-tier gates
+ * Current upstream gates fast_mode behind ChatGPT service-tier checks. Remove
+ * only those current gates.
  */
 const fs = require("fs");
 const path = require("path");
-const { parse } = require("acorn");
 const { relPath, SRC_DIR } = require("./patch-util");
 
-function walk(node, visitor) {
-  if (!node || typeof node !== "object") return;
-  if (node.type) visitor(node);
-  for (const key of Object.keys(node)) {
-    if (key === "type" || key === "start" || key === "end") continue;
-    const child = node[key];
-    if (Array.isArray(child)) {
-      for (const item of child) {
-        if (item && typeof item === "object" && item.type) walk(item, visitor);
-      }
-    } else if (child && typeof child === "object" && child.type) {
-      walk(child, visitor);
-    }
-  }
-}
+const RULES = [
+  {
+    id: "fast_mode_service_tier_read_gate",
+    from:
+      "n===`chatgpt`?(await e.query.fetch(g,{authMethod:n,hostId:t})).requirements?.featureRequirements?.fast_mode!==!1:!1",
+    to:
+      "(await e.query.fetch(g,{authMethod:n,hostId:t})).requirements?.featureRequirements?.fast_mode!==!1",
+  },
+  {
+    id: "fast_mode_service_tier_hook_gate",
+    from:
+      "let{data:u,isPending:d}=o(j,l),f=!!a?.isLoading||s&&d,p=s&&!f&&u!=null&&u?.requirements?.featureRequirements?.fast_mode!==!1,m;",
+    to:
+      "let{data:u,isPending:d}=o(j,l),f=!!a?.isLoading||s&&d,p=!f&&u!=null&&u?.requirements?.featureRequirements?.fast_mode!==!1,m;",
+  },
+];
 
-function collectPatches(ast, source) {
-  const patches = [];
+function patchSource(source) {
+  const changes = [];
+  let code = source;
 
-  walk(ast, (node) => {
-    // Match function bodies containing both authMethod and fast_mode
-    const isFn =
-      node.type === "FunctionDeclaration" ||
-      node.type === "FunctionExpression" ||
-      node.type === "ArrowFunctionExpression";
-    if (!isFn) return;
-
-    const fnSrc = source.slice(node.start, node.end);
-    if (!fnSrc.includes("authMethod") || !fnSrc.includes("fast_mode")) return;
-
-    // Inside this function, find: X.authMethod !== `chatgpt`
-    walk(node, (child) => {
-      if (child.type !== "BinaryExpression" || child.operator !== "!==") return;
-
-      const childSrc = source.slice(child.start, child.end);
-      if (!childSrc.includes("authMethod") || !childSrc.includes("chatgpt"))
-        return;
-
-      if (childSrc === "!1") return;
-
-      // Avoid duplicate patches at same offset
-      if (patches.some((p) => p.start === child.start)) return;
-
-      patches.push({
-        id: "fast_mode_auth_gate",
-        start: child.start,
-        end: child.end,
-        replacement: "!1",
-        original: childSrc,
-      });
-    });
-  });
-
-  return patches;
-}
-
-function flattenLogicalAnd(node) {
-  if (node.type === "LogicalExpression" && node.operator === "&&") {
-    return [
-      ...flattenLogicalAnd(node.left),
-      ...flattenLogicalAnd(node.right),
-    ];
+  for (const rule of RULES) {
+    const idx = code.indexOf(rule.from);
+    if (idx === -1) continue;
+    code = code.slice(0, idx) + rule.to + code.slice(idx + rule.from.length);
+    changes.push(rule.id);
   }
 
-  return [node];
-}
-
-function collectServiceTierHookPatches(ast, source) {
-  const patches = [];
-
-  walk(ast, (node) => {
-    if (node.type !== "LogicalExpression" || node.operator !== "&&") return;
-
-    const nodeSrc = source.slice(node.start, node.end);
-    if (
-      !nodeSrc.includes("fast_mode") ||
-      !nodeSrc.includes("featureRequirements")
-    ) {
-      return;
-    }
-
-    const parts = flattenLogicalAnd(node);
-    if (parts.length < 3) return;
-
-    const authGate = parts[0];
-    const nextGate = parts[1];
-    if (authGate.type !== "Identifier") return;
-
-    const original = source.slice(authGate.start, nextGate.start);
-    if (!original.endsWith("&&")) return;
-
-    if (patches.some((p) => p.start === authGate.start)) return;
-
-    patches.push({
-      id: "fast_mode_service_tier_hook_gate",
-      start: authGate.start,
-      end: nextGate.start,
-      replacement: "",
-      original,
-    });
-  });
-
-  return patches;
-}
-
-function collectStringPatches(source) {
-  const patterns = [
-    {
-      id: "fast_mode_service_tier_read_gate",
-      original:
-        "n===`chatgpt`?(await e.query.fetch(c,{authMethod:n,hostId:t})).requirements?.featureRequirements?.fast_mode!==!1:!1",
-      replacement:
-        "(await e.query.fetch(c,{authMethod:n,hostId:t})).requirements?.featureRequirements?.fast_mode!==!1",
-    },
-  ];
-
-  const patches = [];
-
-  for (const pattern of patterns) {
-    const start = source.indexOf(pattern.original);
-    if (start === -1) continue;
-
-    patches.push({
-      ...pattern,
-      start,
-      end: start + pattern.original.length,
-    });
-  }
-
-  return patches;
+  return { code, changes };
 }
 
 function main() {
@@ -169,7 +61,7 @@ function main() {
       if (!f.endsWith(".js")) continue;
       const fp = path.join(assetsDir, f);
       const src = fs.readFileSync(fp, "utf-8");
-      if (src.includes("authMethod") && src.includes("fast_mode")) {
+      if (RULES.some((rule) => src.includes(rule.from) || src.includes(rule.to))) {
         targets.push({ platform: plat, path: fp });
       }
     }
@@ -184,55 +76,38 @@ function main() {
 
   for (const bundle of targets) {
     const source = fs.readFileSync(bundle.path, "utf-8");
-
-    const t0 = Date.now();
-    let ast;
-    try {
-      ast = parse(source, { ecmaVersion: "latest", sourceType: "module" });
-    } catch {
-      continue;
-    }
-
-    const patches = [
-      ...collectPatches(ast, source),
-      ...collectServiceTierHookPatches(ast, source),
-      ...collectStringPatches(source),
-    ];
-
-    if (patches.length === 0) continue;
-
-    console.log(
-      `  [${bundle.platform}] ${relPath(bundle.path)} (parse ${Date.now() - t0}ms)`,
-    );
+    const { code, changes } = patchSource(source);
 
     if (isCheck) {
-      for (const p of patches) {
-        console.log(`    [?] offset ${p.start}: ${p.original} -> ${p.replacement}`);
+      if (changes.length === 0) {
+        console.log(`  [${bundle.platform}] [ok] no changes needed: ${relPath(bundle.path)}`);
+        continue;
       }
-      totalPatched += patches.length;
+      console.log(`  [${bundle.platform}] ${relPath(bundle.path)}`);
+      for (const id of changes) console.log(`    [?] ${id}`);
+      totalPatched += changes.length;
       continue;
     }
 
-    patches.sort((a, b) => b.start - a.start);
-
-    let code = source;
-    for (const p of patches) {
-      console.log(`    * ${p.original} -> ${p.replacement}`);
-      code = code.slice(0, p.start) + p.replacement + code.slice(p.end);
+    if (changes.length === 0) {
+      console.log(`  [${bundle.platform}] [ok] no changes needed: ${relPath(bundle.path)}`);
+      continue;
     }
 
+    console.log(`  [${bundle.platform}] ${relPath(bundle.path)}`);
+    for (const id of changes) console.log(`    * ${id}`);
     fs.writeFileSync(bundle.path, code, "utf-8");
-    totalPatched += patches.length;
+    totalPatched += changes.length;
   }
 
   if (totalPatched > 0) {
     console.log(
       isCheck
-        ? `  [ok] ${totalPatched} auth gate(s) would be removed`
-        : `  [ok] ${totalPatched} auth gate(s) removed`,
+        ? `  [ok] ${totalPatched} service-tier gate(s) would be removed`
+        : `  [ok] ${totalPatched} service-tier gate(s) removed`,
     );
   } else {
-    console.log("  [ok] fast_mode auth gates already patched or absent");
+    console.log("  [ok] fast_mode service-tier gates already patched or absent");
   }
 }
 
