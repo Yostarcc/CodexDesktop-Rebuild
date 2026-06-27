@@ -72,15 +72,57 @@ function collectPatches(ast, source) {
   return patches;
 }
 
+function flattenLogicalAnd(node) {
+  if (node.type === "LogicalExpression" && node.operator === "&&") {
+    return [
+      ...flattenLogicalAnd(node.left),
+      ...flattenLogicalAnd(node.right),
+    ];
+  }
+
+  return [node];
+}
+
+function collectServiceTierHookPatches(ast, source) {
+  const patches = [];
+
+  walk(ast, (node) => {
+    if (node.type !== "LogicalExpression" || node.operator !== "&&") return;
+
+    const nodeSrc = source.slice(node.start, node.end);
+    if (
+      !nodeSrc.includes("fast_mode") ||
+      !nodeSrc.includes("featureRequirements")
+    ) {
+      return;
+    }
+
+    const parts = flattenLogicalAnd(node);
+    if (parts.length < 3) return;
+
+    const authGate = parts[0];
+    const nextGate = parts[1];
+    if (authGate.type !== "Identifier") return;
+
+    const original = source.slice(authGate.start, nextGate.start);
+    if (!original.endsWith("&&")) return;
+
+    if (patches.some((p) => p.start === authGate.start)) return;
+
+    patches.push({
+      id: "fast_mode_service_tier_hook_gate",
+      start: authGate.start,
+      end: nextGate.start,
+      replacement: "",
+      original,
+    });
+  });
+
+  return patches;
+}
+
 function collectStringPatches(source) {
   const patterns = [
-    {
-      id: "fast_mode_service_tier_hook_gate",
-      original:
-        "a&&!u&&c!=null&&c?.requirements?.featureRequirements?.fast_mode!==!1",
-      replacement:
-        "!u&&c!=null&&c?.requirements?.featureRequirements?.fast_mode!==!1",
-    },
     {
       id: "fast_mode_service_tier_read_gate",
       original:
@@ -153,6 +195,7 @@ function main() {
 
     const patches = [
       ...collectPatches(ast, source),
+      ...collectServiceTierHookPatches(ast, source),
       ...collectStringPatches(source),
     ];
 
@@ -166,6 +209,7 @@ function main() {
       for (const p of patches) {
         console.log(`    [?] offset ${p.start}: ${p.original} -> ${p.replacement}`);
       }
+      totalPatched += patches.length;
       continue;
     }
 
@@ -182,7 +226,11 @@ function main() {
   }
 
   if (totalPatched > 0) {
-    console.log(`  [ok] ${totalPatched} auth gate(s) removed`);
+    console.log(
+      isCheck
+        ? `  [ok] ${totalPatched} auth gate(s) would be removed`
+        : `  [ok] ${totalPatched} auth gate(s) removed`,
+    );
   } else {
     console.log("  [ok] fast_mode auth gates already patched or absent");
   }

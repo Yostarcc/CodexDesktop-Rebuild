@@ -14,20 +14,14 @@ const path = require("path");
 const { PROJECT_ROOT } = require("./patch-util");
 
 const PATCHES = [
-  "patch-i18n.js",
   "patch-sidebar-layout.js",
-  "patch-single-tooltip.js",
-  "patch-window-header-view-menu.js",
   "patch-thread-header-actions.js",
-  "patch-composer-footer-layout.js",
+  "patch-composer-footer-voice-btn.js",
   "patch-composer-run-controls-inline.js",
   "patch-composer-permissions-trigger.js",
-  "patch-primary-runtime-progress.js",
-  "patch-cursor-interaction.js",
-  "patch-copyright.js",
+  "patch-image-generation-config.js",
   "patch-devtools.js",
   "patch-fast-mode.js",
-  "patch-plugin-auth.js",
   "patch-updater.js",
 ];
 

@@ -1,3 +1,11 @@
+你必须阅读下方的所有规则，并且严格遵守！！！
+
+你必须阅读下方的所有规则，并且严格遵守！！！
+
+你必须阅读下方的所有规则，并且严格遵守！！！
+
+
+
 # CodexDesktop-Rebuild
 
 这个项目不是重写桌面端源码，而是：
@@ -17,7 +25,7 @@
 ### 同步上游
 
 ```bash
-node scripts/sync-upstream.js
+node tools/sync-upstream.js
 ```
 
 作用：
@@ -40,7 +48,7 @@ node scripts/patch-all.js win
 ### 正式打包
 
 ```bash
-node scripts/build-from-upstream.js --platform win
+node tools/build-from-upstream.js --platform win
 ```
 
 作用：
@@ -55,19 +63,22 @@ node scripts/build-from-upstream.js --platform win
 
 - `pure-src/`
   - 官方原始包
-  - 永远不直接手改
+  - 永远都不能改，作为最纯净的原本，绝对不能进行任何修改，除非是官方版本有更新，才能拉取最新的官方包进行覆盖
 - `src/`
   - patch 临时工作区
   - 每次 patch 前都会被 `pure-src` 覆盖
+  - 永远不直接改，只能作为在 bundle 上做定点补丁的目标文件进行参考
 - `scripts/`
-  - 正式 patch 和构建脚本
+  - 正式 patch 脚本
+- `tools/`
+  - 同步、下载、构建等辅助工具脚本
 - `out-YYYYMMDDHHMMSS/`
   - 正式产物
 
 ## 补丁原则
 
 - 只针对当前 upstream bundle 写 patch。
-- 不在历史补丁产物上继续叠补丁。
+- 一定程度上参考之前的Patch逻辑，如果只是变量名修改，那就进行最小代价的替换
 - 不保留无意义的旧兼容逻辑。
 - 优先用“当前真实 bundle 的精确字符串替换”。
 - 只有在 `app-main-*.js` 这种超大文件里字符串不稳时，才考虑 AST。
@@ -78,19 +89,48 @@ node scripts/build-from-upstream.js --platform win
 
 - `patch-i18n.js`
 - `patch-sidebar-layout.js`
-- `patch-single-tooltip.js`
-- `patch-window-header-view-menu.js`
+- `patch-window-headermenu.js`
 - `patch-thread-header-actions.js`
 - `patch-composer-footer-layout.js`
 - `patch-composer-run-controls-inline.js`
 - `patch-composer-permissions-trigger.js`
+- `patch-image-generation-config.js`
 - `patch-primary-runtime-progress.js`
-- `patch-cursor-interaction.js`
-- `patch-copyright.js`
 - `patch-devtools.js`
 - `patch-fast-mode.js`
 - `patch-plugin-auth.js`
 - `patch-updater.js`
+
+## 可选补丁链路
+
+这些补丁不进入默认 `patch-all.js`，需要明确确认对应功能后手动执行。
+
+### 手机 Remote Control 本机入口
+
+```bash
+node scripts/patch-remote-control.js win --check
+node scripts/patch-remote-control.js win
+```
+
+作用：
+
+- 让 Windows 的 `Settings -> Connections` 显示 `Control this PC` 本机入口。
+- 本机启用手机控制前，先触发 `authorize-remote-control-connections`。
+- 401 时不再强制跳转 ChatGPT 登录页，只保留当前流程内的错误状态。
+
+边界：
+
+- 不默认加入正式 patch 链路。
+- 不处理 MSIX 安装态、OAuth token 注入、device key fallback 或手机端 API endpoint 诊断。
+- 如果后续要做完整手机远控链路，再单独把主进程 `app-main-*.js` 的授权和诊断补丁纳入评估。
+
+### 手机 Remote Control native 二进制接入
+
+如果需要把外部项目里重建过的 `codex.exe` 接到当前构建链，放到：
+
+`resources/remote-control/codex.exe`
+
+Windows 构建时会自动优先复制这个文件到最终产物的 `resources\codex.exe`。文件必须包含 remote-control 相关 marker；否则会回退到默认 `@cometix/codex`，或者在 marker 不完整时直接报错。
 
 ## 快速定位规则
 
@@ -166,15 +206,17 @@ rg -n "Qp.ExternalFooterSlot|localRemoteWhereRun|function Xm\\(e\\)|inline-compo
 
 ## 推荐升级步骤
 
-1. 跑 `node scripts/sync-upstream.js`
+1. 跑 `node tools/sync-upstream.js`
 2. 跑 `node scripts/patch-all.js win`
 3. 如果 patch 失败：
-   - 直接在 `src/win/_asar/webview/assets` 搜当前真实字符串
+   - 直接在 `src/win/_asar/webview/assets` 搜当前真实字符串，同时参考之前的Patch逻辑，如果只是变量名修改，那就进行最小代价的替换！除非目标的代码结构发生变化，这个时候需要主动提醒用户
    - 修 patch，不要猜旧变量名
-4. 跑 `node scripts/build-from-upstream.js --platform win`
+4. 跑 `node tools/build-from-upstream.js --platform win`
 5. 只验证最新的 `out-YYYYMMDDHHMMSS`
 
 ## 当前交付习惯
 
-- 保留最新一个可运行 `out-*` 目录即可。
-- 旧 `out-*`、临时 bundle 拷贝、对比文本、调试 patch 脚本都应该及时清理。
+- 每次正式打包都会生成新的 `out-YYYYMMDDHHMMSS` 产物目录。
+- 旧 `out-*` 产物默认保留，不主动删除，也不主动移动到回收站。
+- 只有用户明确要求清理旧产物时，才按回收站方式处理旧 `out-*`。
+- 临时 bundle 拷贝、对比文本、调试 patch 脚本仍应及时清理。

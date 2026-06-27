@@ -3,6 +3,13 @@
  * Post-build patch: move run-location / branch controls into the composer
  * footer middle slot for the current upstream bundle.
  *
+ * Contract for inline-composer:
+ * - only move the run-location and branch controls themselves
+ * - if the current upstream bundle requires a tight immediate wrapper to keep
+ *   those two controls working together, preserve only that nearest wrapper
+ * - do not rely on hard-coded class names for that wrapper
+ * - do not move any higher-level footer/layout wrapper into FooterAction
+ *
  * This patch targets the current pristine upstream bundle only.
  */
 const fs = require("fs");
@@ -22,24 +29,24 @@ function patchComposerExternalFooter(source, changes) {
 
   code = replaceOnce(
     code,
-    "let Gt=L===`home`?Wt:zt,Kt=H?.type===`cloud`?Bt:null,qt=L===`home`?zt:Wt,Jt;o[160]!==Gt||o[161]!==Kt||o[162]!==qt?(Jt=(0,z.jsxs)(`div`,{className:`flex min-w-0 flex-1 flex-nowrap items-center gap-1`,children:[Gt,Kt,qt]}),o[160]=Gt,o[161]=Kt,o[162]=qt,o[163]=Jt):Jt=o[163];",
-    "let Gt=L===`home`?Wt:zt,Kt=H?.type===`cloud`?Bt:null,qt=L===`home`?null:Wt,Jt;o[160]!==Gt||o[161]!==Kt||o[162]!==qt?(Jt=(0,z.jsxs)(`div`,{className:`flex min-w-0 flex-1 flex-nowrap items-center gap-1`,children:[Gt,Kt,qt]}),o[160]=Gt,o[161]=Kt,o[162]=qt,o[163]=Jt):Jt=o[163];",
+    "let Qt=I===`home`?Zt:Kt,$t=V?.type===`cloud`?qt:null,en=I===`home`?Kt:Zt,tn;t[165]!==Gt||t[166]!==Qt||t[167]!==$t||t[168]!==en?(tn=(0,z.jsxs)(`div`,{className:`flex min-w-0 flex-1 flex-nowrap items-center gap-1`,children:[Gt,Qt,$t,en]}),t[165]=Gt,t[166]=Qt,t[167]=$t,t[168]=en,t[169]=tn):tn=t[169];",
+    "let Qt=I===`home`?Zt:Kt,$t=V?.type===`cloud`?qt:null,en=null,tn;t[165]!==Gt||t[166]!==Qt||t[167]!==$t||t[168]!==en?(tn=(0,z.jsxs)(`div`,{className:`flex min-w-0 flex-1 flex-nowrap items-center gap-1`,children:[Gt,Qt,$t,en]}),t[165]=Gt,t[166]=Qt,t[167]=$t,t[168]=en,t[169]=tn):tn=t[169];",
     "hide_non_home_branch_switcher_from_external_footer",
     changes,
   );
 
   code = replaceOnce(
     code,
-    "let p;o[122]!==d||o[123]!==H||o[124]!==Bt||o[125]!==q||o[126]!==c||o[127]!==R||o[128]!==S||o[129]!==Ze||o[130]!==_||o[131]!==et||o[132]!==a?(p=H?.type===`cloud`?(0,z.jsx)(Ee,{composerMode:d,setComposerMode:_}):(0,z.jsx)(we,{composerMode:d,setComposerMode:_,conversationId:Ze,footerRemoteState:q,disabled:et,hideModeDropdown:R,allowWorktree:!H&&!S,threadHandoff:c,worktreeLabelOnly:et,secondaryControls:a,modeAdjacentControl:Bt}),o[122]=d,o[123]=H,o[124]=Bt,o[125]=q,o[126]=c,o[127]=R,o[128]=S,o[129]=Ze,o[130]=_,o[131]=et,o[132]=a,o[133]=p):p=o[133],zt=p;",
-    "let p;o[122]!==d||o[123]!==H||o[124]!==Bt||o[125]!==q||o[126]!==c||o[127]!==R||o[128]!==S||o[129]!==Ze||o[130]!==_||o[131]!==et||o[132]!==a?(p=H?.type===`cloud`?(0,z.jsx)(Ee,{composerMode:d,setComposerMode:_}):(0,z.jsx)(we,{composerMode:d,setComposerMode:_,conversationId:Ze,footerRemoteState:q,disabled:et,hideModeDropdown:R,allowWorktree:!H&&!S,threadHandoff:c,worktreeLabelOnly:et,secondaryControls:a,modeAdjacentControl:Bt}),o[122]=d,o[123]=H,o[124]=Bt,o[125]=q,o[126]=c,o[127]=R,o[128]=S,o[129]=Ze,o[130]=_,o[131]=et,o[132]=a,o[133]=p):p=o[133],zt=p;if(L===`inline-composer`)return zt;",
+    "let p;t[125]!==r||t[126]!==V||t[127]!==qt||t[128]!==K||t[129]!==l||t[130]!==B||t[131]!==m||t[132]!==at||t[133]!==a||t[134]!==ct||t[135]!==s?(p=V?.type===`cloud`?(0,z.jsx)(Ae,{composerMode:r,setComposerMode:a}):(0,z.jsx)(Oe,{composerMode:r,setComposerMode:a,conversationId:at,footerRemoteState:K,disabled:ct,hideModeDropdown:B,allowWorktree:!V&&!m,threadHandoff:l,worktreeLabelOnly:ct,secondaryControls:s,modeAdjacentControl:qt}),t[125]=r,t[126]=V,t[127]=qt,t[128]=K,t[129]=l,t[130]=B,t[131]=m,t[132]=at,t[133]=a,t[134]=ct,t[135]=s,t[136]=p):p=t[136],Kt=p;",
+    "let p;t[125]!==r||t[126]!==V||t[127]!==qt||t[128]!==K||t[129]!==l||t[130]!==B||t[131]!==m||t[132]!==at||t[133]!==a||t[134]!==ct||t[135]!==s?(p=V?.type===`cloud`?(0,z.jsx)(Ae,{composerMode:r,setComposerMode:a}):(0,z.jsx)(Oe,{composerMode:r,setComposerMode:a,conversationId:at,footerRemoteState:K,disabled:ct,hideModeDropdown:B,allowWorktree:!V&&!m,threadHandoff:l,worktreeLabelOnly:ct,secondaryControls:s,modeAdjacentControl:qt}),t[125]=r,t[126]=V,t[127]=qt,t[128]=K,t[129]=l,t[130]=B,t[131]=m,t[132]=at,t[133]=a,t[134]=ct,t[135]=s,t[136]=p):p=t[136],Kt=p;if(I===`inline-composer`)return Kt;",
     "inline_composer_returns_run_controls_only",
     changes,
   );
 
   code = replaceOnce(
     code,
-    "Ft=!H&&Dt?(0,z.jsx)(ye,{environments:At,isLoading:jt,hasError:Mt!=null,selectedConfigPath:Nt,onSelectConfigPath:Pt,onOpenSettings:()=>{V(`/settings/local-environments`)}}):null,",
-    "Ft=!H&&Dt?(0,z.jsx)(ye,{environments:At,isLoading:jt,hasError:Mt!=null,hideLabel:!0,selectedConfigPath:Nt,onSelectConfigPath:Pt,onOpenSettings:()=>{V(`/settings/local-environments`)}}):null,",
+    "Ht=!V&&Pt?(0,z.jsx)(we,{environments:Lt,isLoading:Rt,hasError:zt!=null,selectedConfigPath:Bt,onSelectConfigPath:Vt,onOpenSettings:()=>{if(R==null){Be(`/settings/local-environments`);return}be(Fe,L),Be(ge({workspaceRoot:R}),{state:{hostId:L,returnTo:`${Re.pathname}${Re.search}${Re.hash}`}})}}):null,",
+    "Ht=!V&&Pt?(0,z.jsx)(we,{environments:Lt,isLoading:Rt,hasError:zt!=null,hideLabel:!0,selectedConfigPath:Bt,onSelectConfigPath:Vt,onOpenSettings:()=>{if(R==null){Be(`/settings/local-environments`);return}be(Fe,L),Be(ge({workspaceRoot:R}),{state:{hostId:L,returnTo:`${Re.pathname}${Re.search}${Re.hash}`}})}}):null,",
     "hide_worktree_environment_label_in_external_footer",
     changes,
   );
@@ -50,8 +57,8 @@ function patchComposerExternalFooter(source, changes) {
 function patchLocalRemoteDropdown(source, changes) {
   return replaceOnce(
     source,
-    "Rt=D===`summary-panel`?(0,Z.jsx)(at,{disabled:x,icon:(0,Z.jsx)(`span`,{className:`shrink-0`,children:Ft}),label:(0,Z.jsxs)(`span`,{className:`flex min-w-0 items-center gap-1 text-token-foreground`,children:[(0,Z.jsx)(`span`,{className:`min-w-0 truncate`,children:Lt}),x?null:(0,Z.jsx)(He,{className:`icon-2xs shrink-0 text-token-text-tertiary`})]}),labelClassName:`flex min-w-0 items-center`,title:I.formatMessage($.localRemoteWhereRun)}):(0,Z.jsxs)(de,{size:`composerSm`,color:`ghost`,children:[Ft,(0,Z.jsx)(be,{collapse:`xs`,className:`max-w-40 truncate`,children:Lt}),(0,Z.jsx)(He,{className:`icon-2xs text-token-input-placeholder-foreground`})]}),t[90]=x,t[91]=I,t[92]=Ft,t[93]=Lt,t[94]=D,t[95]=Rt):Rt=t[95];",
-    "Rt=D===`summary-panel`?(0,Z.jsx)(at,{disabled:x,icon:(0,Z.jsx)(`span`,{className:`shrink-0`,children:Ft}),label:(0,Z.jsxs)(`span`,{className:`flex min-w-0 items-center gap-1 text-token-foreground`,children:[(0,Z.jsx)(`span`,{className:`min-w-0 truncate`,children:Lt}),x?null:(0,Z.jsx)(He,{className:`icon-2xs shrink-0 text-token-text-tertiary`})]}),labelClassName:`flex min-w-0 items-center`,title:I.formatMessage($.localRemoteWhereRun)}):(0,Z.jsxs)(de,{size:`composerSm`,color:`ghost`,children:[Ft,(0,Z.jsx)(He,{className:`icon-2xs text-token-input-placeholder-foreground`})]}),t[90]=x,t[91]=I,t[92]=Ft,t[93]=Lt,t[94]=D,t[95]=Rt):Rt=t[95];",
+    "Vt=O===`summary-panel`?(0,Z.jsx)(ot,{disabled:C,icon:(0,Z.jsx)(`span`,{className:`shrink-0`,children:Rt}),label:(0,Z.jsxs)(`span`,{className:`flex min-w-0 items-center gap-1 text-token-foreground`,children:[(0,Z.jsx)(`span`,{className:`min-w-0 truncate`,children:Bt}),C?null:(0,Z.jsx)(fe,{className:`icon-2xs shrink-0 text-token-text-tertiary`})]}),labelClassName:`flex min-w-0 items-center`,title:P.formatMessage($.localRemoteWhereRun)}):(0,Z.jsxs)(se,{size:`composerSm`,color:`ghost`,children:[Rt,(0,Z.jsx)(L,{collapse:`xs`,className:`max-w-40 truncate`,children:Bt}),(0,Z.jsx)(fe,{className:`icon-2xs text-token-input-placeholder-foreground`})]}),t[97]=C,t[98]=P,t[99]=Rt,t[100]=Bt,t[101]=O,t[102]=Vt):Vt=t[102];",
+    "Vt=O===`summary-panel`?(0,Z.jsx)(ot,{disabled:C,icon:(0,Z.jsx)(`span`,{className:`shrink-0`,children:Rt}),label:(0,Z.jsxs)(`span`,{className:`flex min-w-0 items-center gap-1 text-token-foreground`,children:[(0,Z.jsx)(`span`,{className:`min-w-0 truncate`,children:Bt}),C?null:(0,Z.jsx)(fe,{className:`icon-2xs shrink-0 text-token-text-tertiary`})]}),labelClassName:`flex min-w-0 items-center`,title:P.formatMessage($.localRemoteWhereRun)}):(0,Z.jsxs)(se,{size:`composerSm`,color:`ghost`,children:[Rt,(0,Z.jsx)(fe,{className:`icon-2xs text-token-input-placeholder-foreground`})]}),t[97]=C,t[98]=P,t[99]=Rt,t[100]=Bt,t[101]=O,t[102]=Vt):Vt=t[102];",
     "hide_run_location_label_in_inline_trigger",
     changes,
   );
@@ -62,32 +69,32 @@ function patchComposer(source, changes) {
 
   code = replaceOnce(
     code,
-    "function Xm(e){let t=(0,$.c)(143),{addContextButton:n,composerMode:r,composerInput:i,isSingleLineLayout:a,hotkeyWindowHomeFooterControls:o,conversationId:s,isAutoContextOn:c,setIsAutoContextOn:l,ideContextStatus:u,hasGoal:d,isGoalActionAvailable:f,onClearGoal:p,permissionsHostId:m,permissionsCwdOverride:h,submitButtonMode:g,canStopFromEscape:_,isStopTurnConfirmationVisible:v,isResponseInProgress:y,isQueueingEnabled:b,isSubmitting:x,isStopping:S,onStop:C,submitBlockReason:w,disabledReason:T,emptySubmitTooltipNonce:E,intelligenceControlOverride:D,handleSubmit:O,voiceControls:k}=e;",
-    "function Xm(e){let t=(0,$.c)(143),{addContextButton:n,composerMode:r,composerInput:i,isSingleLineLayout:a,hotkeyWindowHomeFooterControls:o,conversationId:s,isAutoContextOn:c,setIsAutoContextOn:l,ideContextStatus:u,hasGoal:d,isGoalActionAvailable:f,onClearGoal:p,permissionsHostId:m,permissionsCwdOverride:h,submitButtonMode:g,canStopFromEscape:_,isStopTurnConfirmationVisible:v,isResponseInProgress:y,isQueueingEnabled:b,isSubmitting:x,isStopping:S,onStop:C,submitBlockReason:w,disabledReason:T,emptySubmitTooltipNonce:E,intelligenceControlOverride:D,handleSubmit:O,voiceControls:k,inlineFooterControls:Aa}=e;",
+    "function $h(e){let t=(0,$.c)(155),{addContextButton:n,composerMode:r,composerInput:i,executionTargetHostId:o,isSingleLineLayout:s,hotkeyWindowHomeFooterControls:c,conversationId:l,isAutoContextOn:u,setIsAutoContextOn:d,ideContextStatus:f,hasGoal:p,isGoalActionAvailable:m,isAeonActive:h,aeonStartTarget:g,aeonStatus:_,clearAeon:v,onClearGoal:y,permissionsHostId:b,permissionsCwdOverride:x,submitButtonMode:S,canStopFromEscape:C,isStopTurnConfirmationVisible:w,isResponseInProgress:T,isQueueingEnabled:E,isSubmitting:D,isStopping:O,onStop:k,submitBlockReason:A,disabledReason:j,emptySubmitTooltipNonce:M,intelligenceControlOverride:N,handleSubmit:P,voiceControls:F}=e,",
+    "function $h(e){let t=(0,$.c)(156),{addContextButton:n,composerMode:r,composerInput:i,executionTargetHostId:o,isSingleLineLayout:s,hotkeyWindowHomeFooterControls:c,conversationId:l,isAutoContextOn:u,setIsAutoContextOn:d,ideContextStatus:f,hasGoal:p,isGoalActionAvailable:m,isAeonActive:h,aeonStartTarget:g,aeonStatus:_,clearAeon:v,onClearGoal:y,permissionsHostId:b,permissionsCwdOverride:x,submitButtonMode:S,canStopFromEscape:C,isStopTurnConfirmationVisible:w,isResponseInProgress:T,isQueueingEnabled:E,isSubmitting:D,isStopping:O,onStop:k,submitBlockReason:A,disabledReason:j,emptySubmitTooltipNonce:M,intelligenceControlOverride:N,handleSubmit:P,voiceControls:F,inlineFooterControls:Aa}=e,",
     "add_inline_footer_controls_prop",
     changes,
   );
 
   code = replaceOnce(
     code,
-    "Xe=re?Re:L?Ve:(0,Q.jsxs)(Qp.Footer,{responsive:!0,spacing:o==null?`default`:`flush`,children:[Ye,(0,Q.jsx)(Qp.FooterAction,{children:r===`cloud`?(0,Q.jsx)(Bp,{}):null}),(0,Q.jsxs)(Qp.FooterControls,{ref:he,children:[(0,Q.jsx)(Qp.FooterExpandingControls,{children:(0,Q.jsx)(ih,{composerMode:r,hotkeyWindowHomeFooterControls:o,conversationId:s,availableWidth:_e,intelligenceControlOverride:D,ideContext:{isAutoContextOn:c,setIsAutoContextOn:l,status:u}})}),(0,Q.jsxs)(Qp.FooterActions,{ref:ge,children:[We,Ke,Ie]})]})]}),t[92]=r,t[93]=s,t[94]=We,t[95]=Ve,t[96]=ge,t[97]=Ie,t[98]=o,t[99]=u,t[100]=D,t[101]=c,t[102]=L,t[103]=re,t[104]=_e,t[105]=Ye,t[106]=Re,t[107]=he,t[108]=l,t[109]=Xe):Xe=t[109];",
-    "Xe=re?Re:L?Ve:(0,Q.jsxs)(Qp.Footer,{responsive:!0,spacing:o==null?`default`:`flush`,children:[Ye,(0,Q.jsx)(Qp.FooterAction,{children:Aa??(r===`cloud`?(0,Q.jsx)(Bp,{}):null)}),(0,Q.jsxs)(Qp.FooterControls,{ref:he,children:[(0,Q.jsx)(Qp.FooterExpandingControls,{children:(0,Q.jsx)(ih,{composerMode:r,hotkeyWindowHomeFooterControls:o,conversationId:s,availableWidth:_e,intelligenceControlOverride:D,ideContext:{isAutoContextOn:c,setIsAutoContextOn:l,status:u}})}),(0,Q.jsxs)(Qp.FooterActions,{ref:ge,children:[We,Ke,Ie]})]})]}),t[92]=r,t[93]=s,t[94]=We,t[95]=Ve,t[96]=ge,t[97]=Ie,t[98]=o,t[99]=u,t[100]=D,t[101]=c,t[102]=L,t[103]=re,t[104]=_e,t[105]=Ye,t[106]=Re,t[107]=he,t[108]=l,t[109]=Xe):Xe=t[109];",
+    "t[101]!==r||t[102]!==l||t[103]!==Xe||t[104]!==qe||t[105]!==be||t[106]!==He||t[107]!==c||t[108]!==f||t[109]!==N||t[110]!==u||t[111]!==re||t[112]!==W||t[113]!==xe||t[114]!==tt||t[115]!==Qe||t[116]!==We||t[117]!==ve||t[118]!==d?(nt=W?We:re?qe:(0,Q.jsxs)(ah.Footer,{responsive:!0,spacing:c==null?`default`:`flush`,children:[tt,(0,Q.jsx)(ah.FooterAction,{children:null}),(0,Q.jsxs)(ah.FooterControls,{ref:ve,children:[(0,Q.jsx)(ah.FooterExpandingControls,{children:(0,Q.jsx)(sg,{composerMode:r,hotkeyWindowHomeFooterControls:c,conversationId:l,availableWidth:xe,intelligenceControlOverride:N,ideContext:{isAutoContextOn:u,setIsAutoContextOn:d,status:f}})}),(0,Q.jsxs)(ah.FooterActions,{ref:be,children:[Xe,Qe,He]})]})]}),t[101]=r,t[102]=l,t[103]=Xe,t[104]=qe,t[105]=be,t[106]=He,t[107]=c,t[108]=f,t[109]=N,t[110]=u,t[111]=re,t[112]=W,t[113]=xe,t[114]=tt,t[115]=Qe,t[116]=We,t[117]=ve,t[118]=d,t[119]=nt):nt=t[119];",
+    "t[101]!==r||t[102]!==l||t[103]!==Xe||t[104]!==qe||t[105]!==be||t[106]!==He||t[107]!==c||t[108]!==f||t[109]!==N||t[110]!==u||t[111]!==re||t[112]!==W||t[113]!==xe||t[114]!==tt||t[115]!==Qe||t[116]!==We||t[117]!==ve||t[118]!==d||t[155]!==Aa?(nt=W?We:re?qe:(0,Q.jsxs)(ah.Footer,{responsive:!0,spacing:c==null?`default`:`flush`,children:[tt,(0,Q.jsx)(ah.FooterAction,{children:Aa??null}),(0,Q.jsxs)(ah.FooterControls,{ref:ve,children:[(0,Q.jsx)(ah.FooterExpandingControls,{children:(0,Q.jsx)(sg,{composerMode:r,hotkeyWindowHomeFooterControls:c,conversationId:l,availableWidth:xe,intelligenceControlOverride:N,ideContext:{isAutoContextOn:u,setIsAutoContextOn:d,status:f}})}),(0,Q.jsxs)(ah.FooterActions,{ref:be,children:[Xe,Qe,He]})]})]}),t[101]=r,t[102]=l,t[103]=Xe,t[104]=qe,t[105]=be,t[106]=He,t[107]=c,t[108]=f,t[109]=N,t[110]=u,t[111]=re,t[112]=W,t[113]=xe,t[114]=tt,t[115]=Qe,t[116]=We,t[117]=ve,t[118]=d,t[119]=nt,t[155]=Aa):nt=t[119];",
     "render_inline_footer_controls_in_middle_slot",
     changes,
   );
 
   code = replaceOnce(
     code,
-    "Xm,{addContextButton:dl,composerMode:X,composerInput:ul,executionTargetHostId:Ti,isSingleLineLayout:rc,hotkeyWindowHomeFooterControls:T,conversationId:H,isAutoContextOn:la,setIsAutoContextOn:sa,ideContextStatus:ua,hasGoal:Bi,isGoalActionAvailable:zi,onClearGoal:vc,permissionsHostId:Hi,permissionsCwdOverride:Ui,submitButtonMode:us,canStopFromEscape:ds,isStopTurnConfirmationVisible:Ao,isResponseInProgress:g,isQueueingEnabled:bn,isSubmitting:$t,isStopping:j,onStop:ko,submitBlockReason:os,disabledReason:ss,emptySubmitTooltipNonce:Co,intelligenceControlOverride:void 0,handleSubmit:e=>Bs({...e,focusComposerAfterSubmit:!0}),voiceControls:qs}",
-    "Xm,{addContextButton:dl,composerMode:X,composerInput:ul,executionTargetHostId:Ti,isSingleLineLayout:rc,hotkeyWindowHomeFooterControls:T,conversationId:H,isAutoContextOn:la,setIsAutoContextOn:sa,ideContextStatus:ua,hasGoal:Bi,isGoalActionAvailable:zi,onClearGoal:vc,permissionsHostId:Hi,permissionsCwdOverride:Ui,submitButtonMode:us,canStopFromEscape:ds,isStopTurnConfirmationVisible:Ao,isResponseInProgress:g,isQueueingEnabled:bn,isSubmitting:$t,isStopping:j,onStop:ko,submitBlockReason:os,disabledReason:ss,emptySubmitTooltipNonce:Co,intelligenceControlOverride:void 0,handleSubmit:e=>Bs({...e,focusComposerAfterSubmit:!0}),voiceControls:qs,inlineFooterControls:(0,Q.jsx)(sh,{...Uc,variant:`inline-composer`})}",
+    "(0,Q.jsx)($h,{addContextButton:Il,composerMode:jr,composerInput:Fl,executionTargetHostId:yi,isSingleLineLayout:xc,hotkeyWindowHomeFooterControls:y,conversationId:W,isAutoContextOn:sa,setIsAutoContextOn:aa,ideContextStatus:ca,hasGoal:Bi,isGoalActionAvailable:Ii,isAeonActive:!1,aeonStartTarget:Li??void 0,aeonStatus:void 0,clearAeon:void 0,onClearGoal:Lc,permissionsHostId:Hi,permissionsCwdOverride:Ui,submitButtonMode:Ms,canStopFromEscape:Ps,isStopTurnConfirmationVisible:Uo,isResponseInProgress:f,isQueueingEnabled:zi,isSubmitting:Y,isStopping:D,onStop:Ho,submitBlockReason:Es,disabledReason:Ds,emptySubmitTooltipNonce:Ro,intelligenceControlOverride:void 0,handleSubmit:e=>lc({...e,focusComposerAfterSubmit:!0}),voiceControls:gc})",
+    "(0,Q.jsx)($h,{addContextButton:Il,composerMode:jr,composerInput:Fl,executionTargetHostId:yi,isSingleLineLayout:xc,hotkeyWindowHomeFooterControls:y,conversationId:W,isAutoContextOn:sa,setIsAutoContextOn:aa,ideContextStatus:ca,hasGoal:Bi,isGoalActionAvailable:Ii,isAeonActive:!1,aeonStartTarget:Li??void 0,aeonStatus:void 0,clearAeon:void 0,onClearGoal:Lc,permissionsHostId:Hi,permissionsCwdOverride:Ui,submitButtonMode:Ms,canStopFromEscape:Ps,isStopTurnConfirmationVisible:Uo,isResponseInProgress:f,isQueueingEnabled:zi,isSubmitting:Y,isStopping:D,onStop:Ho,submitBlockReason:Es,disabledReason:Ds,emptySubmitTooltipNonce:Ro,intelligenceControlOverride:void 0,handleSubmit:e=>lc({...e,focusComposerAfterSubmit:!0}),voiceControls:gc,inlineFooterControls:(0,Q.jsx)(ug,{...ml,variant:`inline-composer`})})",
     "pass_inline_footer_controls_to_footer",
     changes,
   );
 
   code = replaceOnce(
     code,
-    "S===`multiline`?(0,Q.jsx)(Qp.ExternalFooterSlot,{isVisible:Ze,variant:N,children:(0,Q.jsx)(sh,{...Uc})}):null,",
-    "S===`multiline`&&N===`home`?(0,Q.jsx)(Qp.ExternalFooterSlot,{isVisible:Ze,variant:N,children:(0,Q.jsx)(sh,{...Uc})}):null,",
+    "v===`multiline`?(0,Q.jsx)(ah.ExternalFooterSlot,{isVisible:Ye,variant:k,children:(0,Q.jsx)(ug,{...ml})}):null,",
+    "v===`multiline`&&k===`home`?(0,Q.jsx)(ah.ExternalFooterSlot,{isVisible:Ye,variant:k,children:(0,Q.jsx)(ug,{...ml})}):null,",
     "keep_external_footer_slot_for_home_only",
     changes,
   );
@@ -105,7 +112,7 @@ function patchSource(source, filename) {
   if (/^local-remote-dropdown-.*\.js$/.test(filename)) {
     code = patchLocalRemoteDropdown(code, changes);
   }
-  if (/^composer-.*\.js$/.test(filename) && source.includes("function Xm(e){")) {
+  if (/^composer-.*\.js$/.test(filename) && source.includes("function $h(e){")) {
     code = patchComposer(code, changes);
   }
 
@@ -134,7 +141,7 @@ function locateTargets(platform) {
       if (!/^composer-.*\.js$/.test(file)) continue;
       const filePath = path.join(dir, file);
       const source = fs.readFileSync(filePath, "utf-8");
-      if (source.includes("function Xm(e){") && source.includes("Qp.ExternalFooterSlot")) {
+      if (source.includes("function $h(e){") && source.includes("ah.ExternalFooterSlot")) {
         targets.push({ platform: plat, path: filePath });
       }
     }

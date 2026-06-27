@@ -8,7 +8,7 @@ module.exports = {
     executableName: "Codex",
     appBundleId: "com.openai.codex",
     icon: "./resources/electron",
-    // Build mode is set by prepare-src.js via src/.build-mode marker file.
+    // Build mode is set by tools/prepare-src.js via src/.build-mode marker file.
     // "upstream-asar": mac/win — we provide pre-built app.asar, forge skips ASAR packing.
     // "linux": forge packs ASAR from src/ content (needs electron-rebuild).
     asar: (() => {

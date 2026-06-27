@@ -11,9 +11,9 @@ const RULE = {
   id: "remove_permissions_trigger_label",
   filePattern: /^composer-.*\.js$/,
   from:
-    "let e=ge,n=R&&`loading-shimmer`,r;t[81]!==n||t[82]!==he?(r=q(`max-w-40 truncate whitespace-nowrap text-left`,he,n),t[81]=n,t[82]=he,t[83]=r):r=t[83];let i;t[84]!==r||t[85]!==_e?(i=(0,Q.jsx)(Gr,{collapse:`xs`,className:r,children:_e}),t[84]=r,t[85]=_e,t[86]=i):i=t[86];let a=he??`text-token-input-placeholder-foreground`,o;t[87]===a?o=t[88]:(o=q(`icon-2xs shrink-0`,a),t[87]=a,t[88]=o);let s;t[89]===o?s=t[90]:(s=(0,Q.jsx)(ho,{className:o}),t[89]=o,t[90]=s);let c;t[91]!==i||t[92]!==s||t[93]!==ge?(c=(0,Q.jsxs)(wr,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,i,s]}),t[91]=i,t[92]=s,t[93]=ge,t[94]=c):c=t[94],Be=c",
+    "let c;t[68]!==i||t[69]!==s||t[70]!==Fe?(c=(0,Q.jsxs)($t,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,i,s]}),t[68]=i,t[69]=s,t[70]=Fe,t[71]=c):c=t[71],nt=c",
   to:
-    "let e=ge,n=R&&`loading-shimmer`,r;t[81]!==n||t[82]!==he?(r=q(`max-w-40 truncate whitespace-nowrap text-left`,he,n),t[81]=n,t[82]=he,t[83]=r):r=t[83];let i;t[84]!==r||t[85]!==_e?(i=(0,Q.jsx)(Gr,{collapse:`xs`,className:r,children:_e}),t[84]=r,t[85]=_e,t[86]=i):i=t[86];let a=he??`text-token-input-placeholder-foreground`,o;t[87]===a?o=t[88]:(o=q(`icon-2xs shrink-0`,a),t[87]=a,t[88]=o);let s;t[89]===o?s=t[90]:(s=(0,Q.jsx)(ho,{className:o}),t[89]=o,t[90]=s);let c;t[91]!==s||t[92]!==ge?(c=(0,Q.jsxs)(wr,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,s]}),t[91]=s,t[92]=ge,t[93]=c):c=t[93],Be=c",
+    "let c;t[68]!==s||t[69]!==Fe?(c=(0,Q.jsxs)($t,{size:`composerSm`,color:`ghost`,className:`min-w-0`,children:[e,s]}),t[68]=s,t[69]=Fe,t[70]=c):c=t[70],nt=c",
 };
 
 function locateTargets(platform) {
@@ -33,7 +33,7 @@ function locateTargets(platform) {
 
       const filePath = path.join(dir, file);
       const source = fs.readFileSync(filePath, "utf-8");
-      if (source.includes(RULE.from)) {
+      if (source.includes(RULE.from) || source.includes(RULE.to)) {
         targets.push({ platform: plat, path: filePath });
       }
     }
