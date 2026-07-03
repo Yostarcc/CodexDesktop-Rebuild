@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Post-build patch: adjust local thread header actions.
+ * Adjust local thread header actions.
  *
  * Changes:
  * 1. Remove native `title` tooltips from buttons that already use the app tooltip layer.

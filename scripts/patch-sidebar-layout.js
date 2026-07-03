@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 /**
- * Post-build patch:
+ * Patch the current sidebar bundle:
  * - remove the top "New chat" action item from sidebar nav
  * - keep fixed nav items inside the top Search nav block
  * - hide the bottom Settings profile footer from sidebar nav
  * - restore project-row path tooltip
- * - keep project hover actions working after tooltip injection
- *
- * This script targets the current upstream bundle with exact string replacements.
+ * - hide the project expand arrow permanently
  */
 const fs = require("fs");
 const path = require("path");
@@ -22,10 +20,10 @@ const TARGETS = [
 ];
 
 const PLUGINS_ICON =
-  'e=>(0,uz.jsx)(`svg`,{width:20,height:20,viewBox:`0 0 20 20`,fill:`none`,xmlns:`http://www.w3.org/2000/svg`,...e,children:(0,uz.jsx)(`path`,{d:`M7.94562 14.0277C7.94556 12.9376 7.0621 12.054 5.97198 12.054C4.88197 12.0542 3.99841 12.9377 3.99835 14.0277C3.99835 15.1178 4.88194 16.0012 5.97198 16.0013C7.06213 16.0013 7.94562 15.1178 7.94562 14.0277ZM16.0013 14.0277C16.0012 12.9376 15.1178 12.054 14.0276 12.054C12.9376 12.0541 12.0541 12.9376 12.054 14.0277C12.054 15.1178 12.9376 16.0013 14.0276 16.0013C15.1178 16.0013 16.0013 15.1178 16.0013 14.0277ZM7.94562 5.97202C7.9455 4.88197 7.06206 3.99838 5.97198 3.99838C4.88201 3.9985 3.99847 4.88204 3.99835 5.97202C3.99835 7.06209 4.88194 7.94553 5.97198 7.94565C7.06213 7.94565 7.94562 7.06216 7.94562 5.97202ZM16.0013 5.97202C16.0012 4.88197 15.1177 3.99838 14.0276 3.99838C12.9376 3.99844 12.0541 4.882 12.054 5.97202C12.054 7.06213 12.9375 7.94559 14.0276 7.94565C15.1178 7.94565 16.0013 7.06216 16.0013 5.97202ZM9.2757 14.0277C9.2757 15.8524 7.79667 17.3314 5.97198 17.3314C4.1474 17.3313 2.66827 15.8523 2.66827 14.0277C2.66833 12.2031 4.14743 10.7241 5.97198 10.724C7.79664 10.724 9.27564 12.203 9.2757 14.0277ZM17.3314 14.0277C17.3314 15.8524 15.8523 17.3314 14.0276 17.3314C12.203 17.3313 10.7239 15.8523 10.7239 14.0277C10.724 12.2031 12.203 10.724 14.0276 10.724C15.8523 10.724 17.3313 12.203 17.3314 14.0277ZM9.2757 5.97202C9.2757 7.7967 7.79667 9.27573 5.97198 9.27573C4.1474 9.27561 2.66827 7.79663 2.66827 5.97202C2.66839 4.1475 4.14747 2.66842 5.97198 2.6683C7.7966 2.6683 9.27558 4.14743 9.2757 5.97202ZM17.3314 5.97202C17.3314 7.7967 15.8523 9.27573 14.0276 9.27573C12.203 9.27567 10.7239 7.79667 10.7239 5.97202C10.7241 4.14746 12.2031 2.66836 14.0276 2.6683C15.8523 2.6683 17.3312 4.14743 17.3314 5.97202Z`,fill:`currentColor`})})';
+  'e=>(0,mz.jsx)(`svg`,{width:20,height:20,viewBox:`0 0 20 20`,fill:`none`,xmlns:`http://www.w3.org/2000/svg`,...e,children:(0,mz.jsx)(`path`,{d:`M7.94562 14.0277C7.94556 12.9376 7.0621 12.054 5.97198 12.054C4.88197 12.0542 3.99841 12.9377 3.99835 14.0277C3.99835 15.1178 4.88194 16.0012 5.97198 16.0013C7.06213 16.0013 7.94562 15.1178 7.94562 14.0277ZM16.0013 14.0277C16.0012 12.9376 15.1178 12.054 14.0276 12.054C12.9376 12.0541 12.0541 12.9376 12.054 14.0277C12.054 15.1178 12.9376 16.0013 14.0276 16.0013C15.1178 16.0013 16.0013 15.1178 16.0013 14.0277ZM7.94562 5.97202C7.9455 4.88197 7.06206 3.99838 5.97198 3.99838C4.88201 3.9985 3.99847 4.88204 3.99835 5.97202C3.99835 7.06209 4.88194 7.94553 5.97198 7.94565C7.06213 7.94565 7.94562 7.06216 7.94562 5.97202ZM16.0013 5.97202C16.0012 4.88197 15.1177 3.99838 14.0276 3.99838C12.9376 3.99844 12.0541 4.882 12.054 5.97202C12.054 7.06213 12.9375 7.94559 14.0276 7.94565C15.1178 7.94565 16.0013 7.06216 16.0013 5.97202ZM9.2757 14.0277C9.2757 15.8524 7.79667 17.3314 5.97198 17.3314C4.1474 17.3313 2.66827 15.8523 2.66827 14.0277C2.66833 12.2031 4.14743 10.7241 5.97198 10.724C7.79664 10.724 9.27564 12.203 9.2757 14.0277ZM17.3314 14.0277C17.3314 15.8524 15.8523 17.3314 14.0276 17.3314C12.203 17.3313 10.7239 15.8523 10.7239 14.0277C10.724 12.2031 12.203 10.724 14.0276 10.724C15.8523 10.724 17.3313 12.203 17.3314 14.0277ZM9.2757 5.97202C9.2757 7.7967 7.79667 9.27573 5.97198 9.27573C4.1474 9.27561 2.66827 7.79663 2.66827 5.97202C2.66839 4.1475 4.14747 2.66842 5.97198 2.6683C7.7966 2.6683 9.27558 4.14743 9.2757 5.97202ZM17.3314 5.97202C17.3314 7.7967 15.8523 9.27573 14.0276 9.27573C12.203 9.27567 10.7239 7.79667 10.7239 5.97202C10.7241 4.14746 12.2031 2.66836 14.0276 2.6683C15.8523 2.6683 17.3312 4.14743 17.3314 5.97202Z`,fill:`currentColor`})})';
 
 const PLUGINS_NAV =
-  't&&(n===`codex`||s)?(0,uz.jsx)(WO,{icon:kp,onClick:()=>{$w(i,a,s)},isActive:o.pathname.startsWith(`/skills`),label:s?(0,uz.jsxs)(`span`,{className:`inline-flex items-center gap-1`,children:[(0,uz.jsx)(J,{id:`sidebarElectron.skillsAppsRouteNavLink`,defaultMessage:`Plugins`,description:`Nav link that opens the skills and apps page`}),(0,uz.jsx)(ZR,{chipConfig:MR})]}):(0,uz.jsx)(J,{id:`sidebarElectron.skillsRouteNavLink`,defaultMessage:`Skills`,description:`Nav link that opens the skills page`})})';
+  't&&(n===`codex`||s)?(0,mz.jsx)(JO,{icon:jp,onClick:()=>{rT(i,a,s)},isActive:o.pathname.startsWith(`/skills`),label:s?(0,mz.jsxs)(`span`,{className:`inline-flex items-center gap-1`,children:[(0,mz.jsx)(J,{id:`sidebarElectron.skillsAppsRouteNavLink`,defaultMessage:`Plugins`,description:`Nav link that opens the skills and apps page`}),(0,mz.jsx)(tz,{chipConfig:IR})]}):(0,mz.jsx)(J,{id:`sidebarElectron.skillsRouteNavLink`,defaultMessage:`Skills`,description:`Nav link that opens the skills page`})})';
 
 const PROJECT_ROW = {
   from:
@@ -58,50 +56,50 @@ const RULES = [
   {
     id: "remove_top_new_chat_item",
     filePattern: APP_MAIN,
-    from: "let j;return t[45]!==O||t[46]!==A?(j=(0,uz.jsxs)(HO,{children:[O,A]}),t[45]=O,t[46]=A,t[47]=j):j=t[47],j}",
-    to: "let j;return t[45]!==O||t[46]!==A?(j=(0,uz.jsxs)(HO,{children:[null,A]}),t[45]=O,t[46]=A,t[47]=j):j=t[47],j}",
+    from: "let j;return t[45]!==O||t[46]!==A?(j=(0,mz.jsxs)(KO,{children:[O,A]}),t[45]=O,t[46]=A,t[47]=j):j=t[47],j}",
+    to: "let j;return t[45]!==O||t[46]!==A?(j=(0,mz.jsxs)(KO,{children:[null,A]}),t[45]=O,t[46]=A,t[47]=j):j=t[47],j}",
   },
   {
     id: "remove_top_new_chat_icon_item",
     filePattern: APP_MAIN,
-    from: "let s;return t[30]!==o||t[31]!==r?(s=(0,uz.jsxs)(`div`,{className:`ml-auto flex items-center gap-1`,children:[r,o]}),t[30]=o,t[31]=r,t[32]=s):s=t[32],s}",
-    to: "let s;return t[30]!==o||t[31]!==r?(s=(0,uz.jsxs)(`div`,{className:`ml-auto flex items-center gap-1`,children:[null,o]}),t[30]=o,t[31]=r,t[32]=s):s=t[32],s}",
+    from: "let s;return t[30]!==o||t[31]!==r?(s=(0,mz.jsxs)(`div`,{className:`ml-auto flex items-center gap-1`,children:[r,o]}),t[30]=o,t[31]=r,t[32]=s):s=t[32],s}",
+    to: "let s;return t[30]!==o||t[31]!==r?(s=(0,mz.jsxs)(`div`,{className:`ml-auto flex items-center gap-1`,children:[null,o]}),t[30]=o,t[31]=r,t[32]=s):s=t[32],s}",
   },
   {
     id: "simplify_fixed_nav_container",
     filePattern: APP_MAIN,
-    from: "let f=`codex`,p=(0,pV.jsxs)(`div`,{className:`flex shrink-0 flex-col gap-2`,children:[(0,pV.jsx)(nz,{chatGptProjectCrudStatus:void 0,desktopNavItemsEnabled:e,sidebarMode:f,onCreateChatGptProject:void 0}),null]});return",
-    to: "let f=`codex`,p=(0,pV.jsx)(nz,{chatGptProjectCrudStatus:void 0,desktopNavItemsEnabled:e,sidebarMode:f,onCreateChatGptProject:void 0});return",
+    from: "let h=`codex`,g=(0,_V.jsxs)(`div`,{className:`flex shrink-0 flex-col gap-2`,children:[(0,_V.jsx)(oz,{chatGptProjectCrudStatus:void 0,desktopNavItemsEnabled:e,sidebarMode:h,onCreateChatGptProject:void 0}),null]});return",
+    to: "let h=`codex`,g=(0,_V.jsx)(oz,{chatGptProjectCrudStatus:void 0,desktopNavItemsEnabled:e,sidebarMode:h,onCreateChatGptProject:void 0});return",
   },
   {
     id: "remove_fixed_nav_inner_padding",
     filePattern: APP_MAIN,
-    from: "className:`shrink-0 px-row-x`,children:(0,uz.jsxs)(HO,{children:[",
-    to: "className:`shrink-0`,children:(0,uz.jsxs)(HO,{children:[",
+    from: "className:`shrink-0 px-row-x`,children:(0,mz.jsxs)(KO,{children:[",
+    to: "className:`shrink-0`,children:(0,mz.jsxs)(KO,{children:[",
   },
   {
     id: "put_fixed_nav_items_inside_search_block",
     filePattern: APP_MAIN,
-    from: "children:[null,(0,pV.jsx)(rz,{sidebarMode:f})",
-    to: "children:[null,(0,pV.jsx)(rz,{sidebarMode:f}),p",
+    from: "children:[null,(0,_V.jsx)(sz,{sidebarMode:h})",
+    to: "children:[null,(0,_V.jsx)(sz,{sidebarMode:h}),g",
   },
   {
     id: "drop_fixed_nav_scroll_top_content",
     filePattern: APP_MAIN,
-    from: "(0,pV.jsx)(AB,{sidebarMode:f,topContent:p})",
-    to: "(0,pV.jsx)(AB,{sidebarMode:f,topContent:null})",
+    from: "(0,_V.jsx)(PB,{sidebarMode:h,topContent:g})",
+    to: "(0,_V.jsx)(PB,{sidebarMode:h,topContent:null})",
   },
   {
     id: "sidebar_scroll_padding_top_zero",
     filePattern: APP_MAIN,
-    from: "d==null?`-mt-2 pt-6`:`-mt-2 pt-2 [--edge-fade-distance:8px]`",
-    to: "d==null?`-mt-2 pt-0`:`-mt-2 pt-0 [--edge-fade-distance:8px]`",
+    from: "d==null?`-mt-2 pt-6`:`-mt-[var(--sidebar-scroll-header-spacing,8px)] pt-[var(--sidebar-scroll-header-spacing,8px)]`",
+    to: "d==null?`-mt-2 pt-0`:`-mt-[var(--sidebar-scroll-header-spacing,8px)] pt-0`",
   },
   {
     id: "replace_plugins_nav_icon",
     filePattern: APP_MAIN,
     from: PLUGINS_NAV,
-    to: PLUGINS_NAV.replace("icon:kp", `icon:${PLUGINS_ICON}`),
+    to: PLUGINS_NAV.replace("icon:jp", `icon:${PLUGINS_ICON}`),
   },
   {
     id: "hide_profile_footer_settings",
@@ -152,10 +150,10 @@ const RULES = [
     to: PROJECT_ACTION_WRAPPER.to,
   },
   {
-    id: "project_expand_toggle_zero_width_when_hidden",
+    id: "project_expand_toggle_always_hidden",
     filePattern: SIDEBAR_FLAT_SECTIONS,
     from: "className:`-ml-1 flex h-5 w-5 shrink-0 cursor-interaction items-center justify-center rounded-sm text-token-foreground opacity-0 group-hover/folder-row:opacity-100 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`",
-    to: "className:`flex h-5 w-0 min-w-0 shrink-0 cursor-interaction items-center justify-center overflow-hidden rounded-sm text-token-foreground opacity-0 pointer-events-none group-hover/folder-row:-ml-1 group-hover/folder-row:w-5 group-hover/folder-row:pointer-events-auto group-hover/folder-row:opacity-100 focus-visible:-ml-1 focus-visible:w-5 focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`",
+    to: "className:`hidden h-5 w-0 min-w-0 shrink-0 cursor-interaction items-center justify-center overflow-hidden rounded-sm text-token-foreground opacity-0 pointer-events-none`",
   },
 ];
 

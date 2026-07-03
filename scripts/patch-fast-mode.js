@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 /**
- * Post-build patch: Force-enable Fast mode (speed selector)
- *
- * Current upstream gates fast_mode behind ChatGPT service-tier checks. Remove
- * only those current gates.
+ * Force-enable Fast mode by removing current service-tier gates.
  */
 const fs = require("fs");
 const path = require("path");

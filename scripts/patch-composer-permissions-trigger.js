@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Post-build patch: remove the stray label text from the composer permissions
- * dropdown trigger while keeping its icon and tooltip behavior intact.
+ * Remove the stray label text from the composer permissions trigger.
  */
 const fs = require("fs");
 const path = require("path");

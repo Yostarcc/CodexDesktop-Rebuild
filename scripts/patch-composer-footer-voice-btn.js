@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Remove the voice input button from composer-related footer surfaces.
+ * Remove the voice input button from composer footer surfaces.
  *
  * Keep the `voiceControls` object intact so we only hide the rendered trigger
  * and do not disturb the internal voice/realtime state wiring.

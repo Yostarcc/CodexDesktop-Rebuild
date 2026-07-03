@@ -12,8 +12,8 @@ const PROJECT_ROOT = path.join(__dirname, "..");
  *
  * @param {object} opts
  * @param {"build"|"assets"} opts.dir - Subdirectory type:
- *   "build"  -> src/{plat}/.vite/build/
- *   "assets" -> src/{plat}/webview/assets/
+ *   "build"  -> src/{plat}/_asar/.vite/build/
+ *   "assets" -> src/{plat}/_asar/webview/assets/
  * @param {RegExp} opts.pattern - Filename regex (e.g. /^index-.*\.js$/)
  * @param {string} [opts.platform] - Restrict to a single platform
  * @returns {Array<{platform: string, path: string}>}
@@ -47,7 +47,6 @@ function locateBundles({ dir, pattern, platform }) {
       continue;
     }
 
-    // For build dir with multiple matches, prefer hashed variant
     const target =
       files.length > 1 ? files.find((f) => f !== "main.js") || files[0] : files[0];
 

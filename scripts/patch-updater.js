@@ -1,14 +1,6 @@
 #!/usr/bin/env node
 /**
- * patch-updater.js — Disable Sparkle (macOS) and Windows auto-updater
- *
- * AST match: in the file containing shouldIncludeSparkle / shouldIncludeUpdater,
- * find these method definitions and replace their bodies to return false.
- *
- * Specifically targets:
- *   shouldIncludeSparkle(e,t,n){return ...}  → return !1
- *   shouldIncludeWindowsUpdater(e,t,n){return ...}  → return !1
- *   shouldIncludeUpdater(e,t,n){return ...}  → return !1
+ * Disable bundled auto-updater gates by forcing updater predicates to false.
  */
 const fs = require("fs");
 const path = require("path");
@@ -40,7 +32,6 @@ function collectPatches(ast, source) {
   const patches = [];
 
   walk(ast, (node) => {
-    // Match: Property with key being an updater method name and value being a FunctionExpression
     if (node.type !== "Property") return;
     const keyName = node.key?.name || node.key?.value;
     if (!UPDATER_METHODS.has(keyName)) return;
@@ -96,6 +87,7 @@ function locateTargets(platform) {
 
 function main() {
   const args = process.argv.slice(2);
+  const isCheck = args.includes("--check");
   const platform = args.find((a) => ["mac-arm64", "mac-x64", "win"].includes(a));
 
   const targets = locateTargets(platform);
@@ -118,12 +110,12 @@ function main() {
     patches.sort((a, b) => b.start - a.start);
     let code = source;
     for (const p of patches) {
-      console.log(`    * [${p.id}] ${p.original} -> !1`);
+      console.log(`    ${isCheck ? "[?]" : "*"} [${p.id}] ${p.original} -> !1`);
       code = code.slice(0, p.start) + p.replacement + code.slice(p.end);
     }
 
-    fs.writeFileSync(bundle.path, code, "utf-8");
-    console.log(`    [ok] ${patches.length} updater methods disabled`);
+    if (!isCheck) fs.writeFileSync(bundle.path, code, "utf-8");
+    console.log(`    [ok] ${patches.length} updater methods ${isCheck ? "would be disabled" : "disabled"}`);
   }
 }
 

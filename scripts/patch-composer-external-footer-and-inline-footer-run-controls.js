@@ -1,16 +1,6 @@
 #!/usr/bin/env node
 /**
- * Post-build patch: move run-location / branch controls into ComposerFooter's
- * FooterAction slot for the current upstream bundle.
- *
- * Contract for inline-composer:
- * - only move the run-location and branch controls themselves
- * - if the current upstream bundle requires a tight immediate wrapper to keep
- *   those two controls working together, preserve only that nearest wrapper
- * - do not rely on hard-coded class names for that wrapper
- * - do not move any higher-level footer/layout wrapper into FooterAction
- *
- * This patch targets the current pristine upstream bundle only.
+ * Move run-location / branch controls into ComposerFooter's FooterAction slot.
  */
 const fs = require("fs");
 const path = require("path");

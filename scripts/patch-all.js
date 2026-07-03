@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Run all patch scripts in sequence.
+ * Restore src from pure-src, then run the official patch chain.
  *
  * Usage:
- *   node scripts/patch-all.js              # Patch both platforms
- *   node scripts/patch-all.js unix         # Patch unix only
+ *   node scripts/patch-all.js              # Patch all available platforms
+ *   node scripts/patch-all.js unix         # Patch mac-arm64 and mac-x64
  *   node scripts/patch-all.js win          # Patch win only
- *   node scripts/patch-all.js --check      # Dry-run all
+ *   node scripts/patch-all.js --check      # Check current src without restoring
  */
 const fs = require("fs");
 const { execFileSync } = require("child_process");

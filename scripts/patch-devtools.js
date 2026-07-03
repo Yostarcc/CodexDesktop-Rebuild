@@ -1,23 +1,10 @@
 #!/usr/bin/env node
 /**
- * Post-build patch: Force-enable DevTools & InspectElement
- *
- * Strategy (AST-based):
- *   In the main bundle, find Property nodes:
- *   - allowInspectElement: <value>  ->  allowInspectElement: !0
- *   - devTools: <expr containing allowDevtools>  ->  devTools: !0
- *
- * Usage:
- *   node scripts/patch-devtools.js [platform]   # Apply patch (unix/win/omit=both)
- *   node scripts/patch-devtools.js --check      # Dry-run: report matches
+ * Force-enable DevTools and InspectElement.
  */
 const fs = require("fs");
 const { parse } = require("acorn");
 const { locateBundles, relPath } = require("./patch-util");
-
-// ──────────────────────────────────────────────
-//  AST walker
-// ──────────────────────────────────────────────
 
 function walkAST(node, visitor, parent) {
   if (!node || typeof node !== "object") return;
@@ -39,24 +26,17 @@ function getPropertyName(node) {
   return null;
 }
 
-// ──────────────────────────────────────────────
-//  Declarative rules
-// ──────────────────────────────────────────────
-
 const RULES = [
   {
     id: "allowInspectElement",
     match(node, source, parent) {
       if (node.type !== "Property") return null;
       if (getPropertyName(node.key) !== "allowInspectElement") return null;
-      // Skip destructured function params (ObjectPattern context)
       if (parent && parent.type === "ObjectPattern") return null;
       if (node.shorthand) return null;
       const val = node.value;
       const valSrc = source.slice(val.start, val.end);
       if (valSrc === "!0") return null;
-      // Skip if value is a binding target (Identifier in pattern-like position)
-      // Only patch when value is clearly an expression (MemberExpression, Identifier used as value)
       return { start: val.start, end: val.end, replacement: "!0", original: valSrc };
     },
   },
@@ -74,10 +54,6 @@ const RULES = [
     },
   },
 ];
-
-// ──────────────────────────────────────────────
-//  Main
-// ──────────────────────────────────────────────
 
 function main() {
   const args = process.argv.slice(2);
