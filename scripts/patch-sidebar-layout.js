@@ -78,6 +78,12 @@ const RULES = [
     to: "className:`shrink-0`,children:(0,mz.jsxs)(KO,{children:[",
   },
   {
+    id: "fixed_nav_margin_bottom",
+    filePattern: APP_MAIN,
+    from: "className:`relative z-10 shrink-0 px-row-x pb-(--sidebar-scroll-header-spacing)`",
+    to: "className:`relative z-10 shrink-0 px-row-x mb-2`",
+  },
+  {
     id: "put_fixed_nav_items_inside_search_block",
     filePattern: APP_MAIN,
     from: "children:[null,(0,_V.jsx)(sz,{sidebarMode:h})",
